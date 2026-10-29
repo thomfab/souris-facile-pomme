@@ -13,15 +13,15 @@ extension](https://github.com/thomfab/souris-facile).
 
 Hold a key combination and move the mouse:
 
-| Keys (default)                    | Action                              |
-| --------------------------------- | ----------------------------------- |
-| `⌃ Control` + `⌥ Option`          | Move the window under the pointer   |
-| `⌃ Control` + `⌥ Option` + `⌘ Command` | Resize the window under the pointer |
+| Keys (default)          | Action                              |
+| ----------------------- | ----------------------------------- |
+| `⌥ Option`              | Move the window under the pointer   |
+| `⌥ Option` + `⌘ Command` | Resize the window under the pointer |
 
 Release the keys to stop. The combination must match exactly, and both can be
 changed (or disabled) in the settings, which warn about combinations that
-can't work well (the same keys for both, or a single key held for ordinary
-shortcuts). Since the resize keys include the move
+can't work well (the same keys for both, or a single key other than `⌥` held for
+ordinary shortcuts). Since the resize keys include the move
 keys, adding `⌘` while moving switches to resizing, and releasing it switches
 back.
 
@@ -108,8 +108,8 @@ when some are remembered.
 | General         | Enabled                         | On              |
 |                 | Launch at login                 | Off             |
 |                 | Raise window                    | Off             |
-| Move            | Keys                            | `⌃` + `⌥`       |
-| Resize          | Keys                            | `⌃` + `⌥` + `⌘` |
+| Move            | Keys                            | `⌥`             |
+| Resize          | Keys                            | `⌥` + `⌘`       |
 |                 | Resize from nearest corner      | On              |
 | Snapping        | Snap distance                   | 16 pt           |
 |                 | Snap to other windows           | On              |

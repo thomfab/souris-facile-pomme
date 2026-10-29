@@ -16,9 +16,9 @@ final class ModifierTests: XCTestCase {
         XCTAssertEqual(Modifier.flags("control,option"), [.maskControl, .maskAlternate])
     }
 
-    func testDefaultsAreControlOptionToMove() {
-        XCTAssertEqual(Modifier.parse(Defaults.moveModifiers), [.control, .option])
-        XCTAssertEqual(Modifier.parse(Defaults.resizeModifiers), [.control, .option, .command])
+    func testDefaultsAreOptionToMove() {
+        XCTAssertEqual(Modifier.parse(Defaults.moveModifiers), [.option])
+        XCTAssertEqual(Modifier.parse(Defaults.resizeModifiers), [.option, .command])
         XCTAssertEqual(Modifier.warnings(move: Defaults.moveModifiers, resize: Defaults.resizeModifiers), [])
     }
 
@@ -31,5 +31,6 @@ final class ModifierTests: XCTestCase {
     func testWarnsAboutASingleKey() {
         XCTAssertEqual(Modifier.warnings(move: "command", resize: "control,option,command").count, 1)
         XCTAssertEqual(Modifier.warnings(move: "shift", resize: "shift").count, 3)
+        XCTAssertEqual(Modifier.warnings(move: "option", resize: "option,command"), [])
     }
 }
