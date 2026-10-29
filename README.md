@@ -159,6 +159,10 @@ To open the project in Xcode, run `open Package.swift`.
 
 ### Releasing
 
+Each release gets a section in [CHANGELOG.md](CHANGELOG.md), whose heading is
+the version (`## 0.6`). Pushing the tag `v0.6` publishes the release with
+that section as its notes, and fails if it's missing.
+
 `make release` builds `build/SourisFacilePomme-<version>.zip`, with the version
 taken from `Resources/Info.plist`. To share it beyond your own Macs, sign
 with a Developer ID and have Apple notarize it, after saving your notary
