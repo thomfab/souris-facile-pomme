@@ -17,7 +17,9 @@ Hold a key combination and move the mouse:
 | --------------------------------- | ----------------------------------- |
 | `⌃ Control` + `⌥ Option`          | Move the window under the pointer   |
 | `⌃ Control` + `⌥ Option` + `⌘ Command` | Resize the window under the pointer |
-| `⌃ Control` + `⌥ Option` + `⌘ Command` + `⇧ Shift` | Resize without snapping to the grid |
+
+Press and hold the click (a normal click on the trackpad) while holding the
+keys to snap to the grid, and release it to move or resize freely again.
 
 Release the keys to stop. The combination must match exactly, and both can be
 changed (or disabled) in the settings, which warn about combinations that
@@ -34,24 +36,25 @@ back.
 
 ### Snapping
 
-On displays without a grid, window edges snap to screen edges (minus the
+Window edges snap to screen edges (minus the
 menu bar and the Dock) and to the edges of neighbouring windows when they
 come within 16 points. The distance is configurable, and `0` turns snapping
 off.
 
 ### Grid
 
-Each display can be divided into a grid of columns and rows: moved and
-resized edges then always land on a grid line. The grid is set per display,
-on and off and in size, e.g. off on the laptop screen and 6 × 2 on an
-ultrawide monitor. It follows the display under the pointer, and its lines
-can be shown while you move or resize, with the other windows dimmed. Windows
-stacked above the one you are moving stay bright, so turn on "Raise window"
-if you want everything else dimmed.
+Each display is divided into a grid of columns and rows. While you hold the
+click, moved and resized edges always land on a grid line; the click itself
+doesn't reach the app under the pointer. The grid follows the display under
+the pointer, and its lines are shown while you hold the click, with the other
+windows dimmed. Windows stacked above the one you are moving stay bright, so
+turn on "Raise window" if you want everything else dimmed.
 
-To resize a window off the grid, add `⇧ Shift` to the resize keys (also
-while resizing): the edges then snap to screen edges and other windows, as on
-a display without a grid. The extra keys can be changed on the Resize page.
+Each display has its own grid size, e.g. 2 × 2 on the laptop screen and
+8 × 4 on an ultrawide monitor. A display seen for the first time gets a grid
+suiting its size: 2 × 2 for 13–14″ laptops, 3 × 2 for 15–16″ laptops and
+1080p, 4 × 3 for larger displays, 8 × 4 for ultrawides and 2 × 3 for
+portrait displays.
 
 Grids are remembered per physical display, so plugging the laptop into your
 monitors at home or at the office brings their grids back. In the settings,
@@ -72,7 +75,7 @@ While holding the move keys over a window:
 
 The window keeps its relative place and size (a window on the left half of
 the laptop screen lands on the left half of the monitor), fits the grid of
-that display when the grid is on, and the pointer goes with it, so you can
+that display if you hold the click, and the pointer goes with it, so you can
 keep moving it. Swipes, scrolls and arrow keys used this way don't reach the
 app under the pointer. Both can be turned off in the settings.
 
@@ -115,7 +118,6 @@ when some are remembered.
 |                 | Raise window                    | Off             |
 | Move            | Keys                            | `⌃` + `⌥`       |
 | Resize          | Keys                            | `⌃` + `⌥` + `⌘` |
-|                 | Resize without grid             | `⇧`             |
 |                 | Resize from nearest corner      | On              |
 | Snapping        | Snap distance                   | 16 pt           |
 |                 | Snap to other windows           | On              |
@@ -124,8 +126,7 @@ when some are remembered.
 | Send to Display | Swipe or scroll                 | On              |
 |                 | Arrow keys                      | On              |
 |                 | Remember window sizes           | On              |
-| Each display    | Snap to grid                    | Off             |
-|                 | Grid size                       | 4 × 3           |
+| Each display    | Grid size                       | Suits the display |
 |                 | Remembered window sizes, forget |                 |
 
 ## Building

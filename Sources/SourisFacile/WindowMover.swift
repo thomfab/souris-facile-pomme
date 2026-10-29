@@ -25,8 +25,11 @@ final class WindowMover {
     // Which edges a resize moves: -1 for left/top, 1 for right/bottom.
     private var resizeDirX: CGFloat = 1
     private var resizeDirY: CGFloat = 1
-    // Whether the resize keys are held with the free resize keys.
-    private var ignoreGrid = false
+    // Whether the button is held down with the keys, to snap to the grid.
+    private var gridClick = false
+    // The window server ID of the window, to dim the others below it.
+    private var windowID: CGWindowID?
+    private var dimmed = false
     private var lastFrame = CGRect.null
     // The window's app, to remember where its windows were on each display.
     private var app: String?
@@ -53,6 +56,8 @@ final class WindowMover {
             return handleScroll(event)
         case .keyDown, .keyUp:
             return handleKey(type, event)
+        case .leftMouseDown, .leftMouseUp:
+            return handleClick(type, event)
         default:
             scheduleUpdate()
             return false
@@ -87,24 +92,34 @@ final class WindowMover {
         switch action {
         case .none: newOp = .none
         case .move: newOp = .move
-        case .resize, .freeResize: newOp = .resize
+        case .resize: newOp = .resize
         }
-        // Switching between them keeps the resize going.
-        ignoreGrid = action == .freeResize
 
         if newOp != op {
             endOperation()
             if newOp != .none {
                 beginOperation(newOp, at: point)
             }
-            return
+        } else {
+            switch op {
+            case .move: updateMove(point)
+            case .resize: updateResize(point)
+            case .none: break
+            }
         }
+        updateDimmer()
+    }
 
-        switch op {
-        case .move: updateMove(point)
-        case .resize: updateResize(point)
-        case .none: break
+    // The other windows are dimmed while snapping to the grid.
+    private func updateDimmer() {
+        let dim = op != .none && gridClick && settings.dimWindows && windowID != nil
+        guard dim != dimmed, let windowID else { return }
+        if dim {
+            overlays.showDimmer(below: windowID)
+        } else {
+            overlays.hideDimmer()
         }
+        dimmed = dim
     }
 
     private func beginOperation(_ newOp: Op, at point: CGPoint, window: ManagedWindow? = nil) {
@@ -115,6 +130,10 @@ final class WindowMover {
 
         op = newOp
         self.window = window
+        // In case the button's release was missed.
+        if gridClick && !CGEventSource.buttonState(.combinedSessionState, button: .left) {
+            gridClick = false
+        }
         start = point
         startRect = rect
         lastFrame = rect
@@ -133,14 +152,10 @@ final class WindowMover {
             resizeDirY = 1
         }
 
-        let windowID = collectSnapTargets(for: window, frame: rect)
+        windowID = collectSnapTargets(for: window, frame: rect)
 
         if settings.raiseWindow {
             window.raise()
-        }
-
-        if settings.dimWindows && currentGrid(point) != nil, let windowID {
-            overlays.showDimmer(below: windowID)
         }
     }
 
@@ -153,6 +168,8 @@ final class WindowMover {
         app = nil
         beginFrame = nil
         moveDisplay = nil
+        windowID = nil
+        dimmed = false
         workAreas = []
         otherRects = []
         overlays.hideAll()
@@ -205,10 +222,7 @@ final class WindowMover {
         if resizeDirX > 0 { right += dx } else { left += dx }
         if resizeDirY > 0 { bottom += dy } else { top += dy }
 
-        let grid = ignoreGrid ? nil : currentGrid(point)
-        if ignoreGrid {
-            overlays.hideGrid()
-        }
+        let grid = currentGrid(point)
         let linesX = snapLinesX(top: top, height: bottom - top, grid)
         if resizeDirX > 0 {
             right += snap([right], linesX, grid)
@@ -249,6 +263,24 @@ final class WindowMover {
         if origin != actual.origin {
             _ = window.setOrigin(origin)
         }
+    }
+
+    // Pressing the button while holding the keys snaps to the grid until
+    // it's released. The app under the pointer gets neither.
+    private func handleClick(_ type: CGEventType, _ event: CGEvent) -> Bool {
+        if type == .leftMouseUp {
+            guard gridClick else { return false }
+            gridClick = false
+            scheduleUpdate()
+            return true
+        }
+        if op == .none {
+            settings = Settings.load()
+        }
+        guard settings.enabled, settings.action(for: event.flags) != .none else { return false }
+        gridClick = true
+        scheduleUpdate()
+        return true
     }
 
     // MARK: Sending to another display
@@ -345,8 +377,8 @@ final class WindowMover {
         // relative place and size as here.
         var newFrame = remembered(app, on: screens[to])?.restored(in: area, keepSize: !resizable)
             ?? transfer(frame, from: source.globalVisibleFrame, to: area, keepSize: !resizable)
-        let grid = settings.grid(forDisplay: screens[to].displayUUID)
-        if grid.enabled && resizable {
+        if gridClick && resizable {
+            let grid = settings.grid(forDisplay: screens[to].displayUUID, size: screens[to].globalFrame.size)
             newFrame = fitToGrid(newFrame, area: area, columns: grid.columns, rows: grid.rows)
         }
 
@@ -464,16 +496,15 @@ final class WindowMover {
 
     private typealias Grid = (area: CGRect, columns: Int, rows: Int)
 
-    // The grid of the screen under the pointer, or nil if that screen has
-    // none (edge snapping then applies).
+    // The grid of the screen under the pointer while the button is held,
+    // or nil (edge snapping then applies).
     private func currentGrid(_ point: CGPoint) -> Grid? {
-        let screen = NSScreen.containing(point)
-        let grid = settings.grid(forDisplay: screen?.displayUUID)
-        guard grid.enabled else {
+        guard gridClick, let screen = NSScreen.containing(point) else {
             overlays.hideGrid()
             return nil
         }
-        let area = screen?.globalVisibleFrame ?? workAreas.first ?? .zero
+        let grid = settings.grid(forDisplay: screen.displayUUID, size: screen.globalFrame.size)
+        let area = screen.globalVisibleFrame
         if settings.showGrid {
             overlays.showGrid(over: area, columns: grid.columns, rows: grid.rows)
         }

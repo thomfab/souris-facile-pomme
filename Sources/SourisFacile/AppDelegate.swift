@@ -5,7 +5,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let mover = WindowMover()
     private lazy var tap = EventTap(types: [
         .mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged, .flagsChanged,
-        .scrollWheel, .keyDown, .keyUp,
+        .leftMouseDown, .leftMouseUp, .scrollWheel, .keyDown, .keyUp,
     ]) { [mover] type, event in
         mover.handle(type, event)
     }

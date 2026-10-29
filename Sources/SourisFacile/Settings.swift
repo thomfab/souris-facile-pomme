@@ -57,14 +57,10 @@ enum Key {
     static let enabled = "enabled"
     static let moveModifiers = "move-modifiers"
     static let resizeModifiers = "resize-modifiers"
-    static let freeResizeModifiers = "free-resize-modifiers"
     static let raiseWindow = "raise-window"
     static let resizeNearestCorner = "resize-nearest-corner"
     static let snapThreshold = "snap-threshold"
     static let snapToWindows = "snap-to-windows"
-    static let gridEnabled = "grid-enabled"
-    static let gridColumns = "grid-columns"
-    static let gridRows = "grid-rows"
     static let displayGrids = "display-grids"
     static let showGrid = "show-grid"
     static let dimWindows = "dim-windows"
@@ -77,10 +73,7 @@ enum Key {
 enum Defaults {
     static let moveModifiers = "control,option"
     static let resizeModifiers = "control,option,command"
-    static let freeResizeModifiers = "shift"
     static let snapThreshold = 16
-    static let gridColumns = 4
-    static let gridRows = 3
     static let gridRange = 1...48
 
     static func register() {
@@ -88,14 +81,10 @@ enum Defaults {
             Key.enabled: true,
             Key.moveModifiers: moveModifiers,
             Key.resizeModifiers: resizeModifiers,
-            Key.freeResizeModifiers: freeResizeModifiers,
             Key.raiseWindow: false,
             Key.resizeNearestCorner: true,
             Key.snapThreshold: snapThreshold,
             Key.snapToWindows: true,
-            Key.gridEnabled: false,
-            Key.gridColumns: gridColumns,
-            Key.gridRows: gridRows,
             Key.showGrid: true,
             Key.dimWindows: true,
             Key.sendWithScroll: true,
@@ -119,7 +108,19 @@ let gridPresets = [
     GridPreset(name: "24–27″", columns: 4, rows: 3),
     GridPreset(name: "Ultrawide", columns: 6, rows: 2),
     GridPreset(name: "Ultrawide, fine", columns: 8, rows: 4),
+    GridPreset(name: "Portrait", columns: 2, rows: 3),
 ]
+
+// A grid that suits a display of this size (in points), for displays whose
+// grid was never set.
+func sensibleGrid(for size: CGSize) -> (columns: Int, rows: Int) {
+    guard size.width > 0, size.height > 0 else { return (4, 3) }
+    if size.height > size.width { return (2, 3) }
+    if size.width / size.height >= 2.1 { return (8, 4) }  // Ultrawide
+    if size.width < 1600 { return (2, 2) }  // 13–14″ laptops
+    if size.width < 2000 { return (3, 2) }  // 15–16″ laptops, 1080p
+    return (4, 3)
+}
 
 // The grid of one display, remembered by the display's UUID so it applies
 // again whenever that display is plugged back in.
@@ -128,9 +129,8 @@ struct DisplayGrid: Codable, Equatable {
     var name: String
     var columns: Int
     var rows: Int
-    // Whether windows snap to it. Missing in grids saved by version 0.2,
-    // when the grid was turned on for all displays at once.
-    var enabled: Bool? = nil
+    // Version 0.3 also saved whether the grid was on, ignored now that it
+    // always is.
 
     // All of them are stored as JSON, keyed by display UUID.
     static func decode(_ data: Data?) -> [String: DisplayGrid] {
@@ -152,8 +152,6 @@ private func clampGrid(_ count: Int) -> Int {
 // What the held modifier keys do.
 enum KeyAction: Equatable {
     case none, move, resize
-    // Resizing without snapping to the grid.
-    case freeResize
 }
 
 // A snapshot of the settings, read when no operation is running.
@@ -161,15 +159,10 @@ struct Settings {
     var enabled: Bool
     var moveFlags: CGEventFlags
     var resizeFlags: CGEventFlags
-    // Added to the resize keys, resizes without the grid.
-    var freeResizeFlags: CGEventFlags
     var raiseWindow: Bool
     var resizeNearestCorner: Bool
     var snapThreshold: CGFloat
     var snapToWindows: Bool
-    var gridEnabled: Bool
-    var gridColumns: Int
-    var gridRows: Int
     var displayGrids: [String: DisplayGrid]
     var showGrid: Bool
     var dimWindows: Bool
@@ -183,14 +176,10 @@ struct Settings {
             enabled: d.bool(forKey: Key.enabled),
             moveFlags: Modifier.flags(d.string(forKey: Key.moveModifiers) ?? ""),
             resizeFlags: Modifier.flags(d.string(forKey: Key.resizeModifiers) ?? ""),
-            freeResizeFlags: Modifier.flags(d.string(forKey: Key.freeResizeModifiers) ?? ""),
             raiseWindow: d.bool(forKey: Key.raiseWindow),
             resizeNearestCorner: d.bool(forKey: Key.resizeNearestCorner),
             snapThreshold: CGFloat(d.integer(forKey: Key.snapThreshold)),
             snapToWindows: d.bool(forKey: Key.snapToWindows),
-            gridEnabled: d.bool(forKey: Key.gridEnabled),
-            gridColumns: clampGrid(d.integer(forKey: Key.gridColumns)),
-            gridRows: clampGrid(d.integer(forKey: Key.gridRows)),
             displayGrids: DisplayGrid.decode(d.data(forKey: Key.displayGrids)),
             showGrid: d.bool(forKey: Key.showGrid),
             dimWindows: d.bool(forKey: Key.dimWindows),
@@ -203,15 +192,8 @@ struct Settings {
     // `flags` must match a combination exactly.
     func action(for flags: CGEventFlags) -> KeyAction {
         let flags = flags.intersection(Modifier.relevantFlags)
-        if !resizeFlags.isEmpty {
-            if flags == resizeFlags {
-                return .resize
-            }
-            // Keys already among the resize keys add nothing.
-            let free = freeResizeFlags.subtracting(resizeFlags)
-            if !free.isEmpty && flags == resizeFlags.union(free) {
-                return .freeResize
-            }
+        if !resizeFlags.isEmpty && flags == resizeFlags {
+            return .resize
         }
         if !moveFlags.isEmpty && flags == moveFlags {
             return .move
@@ -219,10 +201,10 @@ struct Settings {
         return .none
     }
 
-    // The display's grid. A display never set up uses the settings from
-    // before grids were per display (the grid-* keys), off by default.
-    func grid(forDisplay uuid: String?) -> (enabled: Bool, columns: Int, rows: Int) {
-        guard let uuid, let grid = displayGrids[uuid] else { return (gridEnabled, gridColumns, gridRows) }
-        return (grid.enabled ?? gridEnabled, clampGrid(grid.columns), clampGrid(grid.rows))
+    // The grid of a display `size` points large, which suits its size if it
+    // was never set.
+    func grid(forDisplay uuid: String?, size: CGSize) -> (columns: Int, rows: Int) {
+        guard let uuid, let grid = displayGrids[uuid] else { return sensibleGrid(for: size) }
+        return (clampGrid(grid.columns), clampGrid(grid.rows))
     }
 }

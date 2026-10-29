@@ -13,15 +13,10 @@ struct SettingsView: View {
     @AppStorage(Key.enabled) private var enabled = true
     @AppStorage(Key.moveModifiers) private var moveModifiers = Defaults.moveModifiers
     @AppStorage(Key.resizeModifiers) private var resizeModifiers = Defaults.resizeModifiers
-    @AppStorage(Key.freeResizeModifiers) private var freeResizeModifiers = Defaults.freeResizeModifiers
     @AppStorage(Key.raiseWindow) private var raiseWindow = false
     @AppStorage(Key.resizeNearestCorner) private var resizeNearestCorner = true
     @AppStorage(Key.snapThreshold) private var snapThreshold = Defaults.snapThreshold
     @AppStorage(Key.snapToWindows) private var snapToWindows = true
-    // From before grids were per display: what a display never set up starts with.
-    @AppStorage(Key.gridEnabled) private var gridEnabled = false
-    @AppStorage(Key.gridColumns) private var gridColumns = Defaults.gridColumns
-    @AppStorage(Key.gridRows) private var gridRows = Defaults.gridRows
     @AppStorage(Key.displayGrids) private var displayGridsData = Data()
     @AppStorage(Key.showGrid) private var showGrid = true
     @AppStorage(Key.dimWindows) private var dimWindows = true
@@ -146,13 +141,6 @@ struct SettingsView: View {
         }
         warningsSection
         Section {
-            ModifierToggles(value: $freeResizeModifiers, excluded: Modifier.parse(resizeModifiers))
-        } header: {
-            Text("Resize Without Grid")
-        } footer: {
-            Text("Hold these keys too, on a display with a grid, to resize freely. Edges still snap to screen edges and other windows.")
-        }
-        Section {
             Toggle(isOn: $resizeNearestCorner) {
                 Text("Resize from nearest corner")
                 Text("Otherwise always from the bottom-right corner.")
@@ -181,7 +169,7 @@ struct SettingsView: View {
         } header: {
             Text("Edge Snapping")
         } footer: {
-            Text("On displays without a grid, window edges snap to screen edges when they come close. 0 turns edge snapping off.")
+            Text("Window edges snap to screen edges when they come close. 0 turns edge snapping off.")
         }
 
         Section {
@@ -190,7 +178,7 @@ struct SettingsView: View {
         } header: {
             Text("Grid")
         } footer: {
-            Text("While moving or resizing on a display with a grid. Each display's grid is set on its own page.")
+            Text("While moving or resizing, press and hold the click (with the keys still held) to snap window edges to the grid of the display under the pointer. Each display's grid is set on its own page.")
         }
     }
 
@@ -225,19 +213,14 @@ struct SettingsView: View {
 
     @ViewBuilder private func displayPage(_ display: ConnectedDisplay) -> some View {
         Section {
-            Toggle(isOn: gridEnabledBinding(display)) {
-                Text("Snap to grid")
-                Text("Moved and resized window edges always land on the grid lines.")
-            }
             GridSizeFields(title: "Grid size",
                            columns: gridSizeBinding(display, \.columns),
                            rows: gridSizeBinding(display, \.rows))
-                .disabled(!grid(of: display).enabled!)
             Button("Preview Grid") { previewGrid(on: display) }
         } header: {
             Text("Grid")
         } footer: {
-            Text("Remembered for this display, and used again whenever it's plugged in.")
+            Text("Windows snap to it while you hold the click. Remembered for this display, and used again whenever it's plugged in. A new display gets a grid suiting its size.")
         }
 
         Section {
@@ -296,16 +279,16 @@ struct SettingsView: View {
     }
 
     private func gridSummary(_ grid: DisplayGrid) -> String {
-        let size = "\(grid.columns) × \(grid.rows)"
-        return grid.enabled ?? gridEnabled ? "Grid \(size)" : "Grid off (\(size))"
+        "Grid \(grid.columns) × \(grid.rows)"
     }
 
-    // The display's grid, or what it starts with if it was never set up.
+    // The display's grid, or one suiting its size if it was never set.
     private func grid(of display: ConnectedDisplay) -> DisplayGrid {
-        var grid = displayGrids[display.uuid]
-            ?? DisplayGrid(name: display.name, columns: gridColumns, rows: gridRows)
-        grid.enabled = grid.enabled ?? gridEnabled
-        return grid
+        if let grid = displayGrids[display.uuid] {
+            return grid
+        }
+        let size = sensibleGrid(for: display.size)
+        return DisplayGrid(name: display.name, columns: size.columns, rows: size.rows)
     }
 
     private func setDisplayGrid(_ grid: DisplayGrid?, for uuid: String) {
@@ -319,18 +302,6 @@ struct SettingsView: View {
         grid.name = display.name
         change(&grid)
         setDisplayGrid(grid, for: display.uuid)
-    }
-
-    private func gridEnabledBinding(_ display: ConnectedDisplay) -> Binding<Bool> {
-        Binding(
-            get: { grid(of: display).enabled! },
-            set: { isOn in
-                updateGrid(display) { $0.enabled = isOn }
-                if isOn {
-                    previewGrid(on: display)
-                }
-            }
-        )
     }
 
     private func gridSizeBinding(_ display: ConnectedDisplay,
@@ -356,12 +327,14 @@ private struct ConnectedDisplay: Identifiable {
     let uuid: String
     let name: String
     let isBuiltIn: Bool
+    let size: CGSize
     var id: String { uuid }
 
     static func all() -> [ConnectedDisplay] {
         NSScreen.screens.compactMap { screen in
             screen.displayUUID.map {
-                ConnectedDisplay(uuid: $0, name: screen.localizedName, isBuiltIn: screen.isBuiltIn)
+                ConnectedDisplay(uuid: $0, name: screen.localizedName, isBuiltIn: screen.isBuiltIn,
+                                 size: screen.globalFrame.size)
             }
         }
     }
@@ -420,11 +393,9 @@ private struct GridSizeFields: View {
 
 private struct ModifierToggles: View {
     @Binding var value: String
-    // Keys that can't be picked, as they're already used.
-    var excluded: Set<Modifier> = []
 
     var body: some View {
-        ForEach(Modifier.allCases.filter { !excluded.contains($0) }) { modifier in
+        ForEach(Modifier.allCases) { modifier in
             Toggle(modifier.label, isOn: Binding(
                 get: { Modifier.parse(value).contains(modifier) },
                 set: { isOn in
