@@ -17,6 +17,7 @@ Hold a key combination and move the mouse:
 | ----------------------- | ----------------------------------- |
 | `⌥ Option`              | Move the window under the pointer   |
 | `⌥ Option` + `⌘ Command` | Resize the window under the pointer |
+| `⌥ Option` + `⌘ Command` + `⇧ Shift` | Resize without snapping to the grid |
 
 Release the keys to stop. The combination must match exactly, and both can be
 changed (or disabled) in the settings, which warn about combinations that
@@ -47,6 +48,10 @@ ultrawide monitor. It follows the display under the pointer, and its lines
 can be shown while you move or resize, with the other windows dimmed. Windows
 stacked above the one you are moving stay bright, so turn on "Raise window"
 if you want everything else dimmed.
+
+To resize a window off the grid, add `⇧ Shift` to the resize keys (also
+while resizing): the edges then snap to screen edges and other windows, as on
+a display without a grid. The extra keys can be changed on the Resize page.
 
 Grids are remembered per physical display, so plugging the laptop into your
 monitors at home or at the office brings their grids back. In the settings,
@@ -110,6 +115,7 @@ when some are remembered.
 |                 | Raise window                    | Off             |
 | Move            | Keys                            | `⌥`             |
 | Resize          | Keys                            | `⌥` + `⌘`       |
+|                 | Resize without grid             | `⇧`             |
 |                 | Resize from nearest corner      | On              |
 | Snapping        | Snap distance                   | 16 pt           |
 |                 | Snap to other windows           | On              |

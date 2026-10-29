@@ -25,6 +25,8 @@ final class WindowMover {
     // Which edges a resize moves: -1 for left/top, 1 for right/bottom.
     private var resizeDirX: CGFloat = 1
     private var resizeDirY: CGFloat = 1
+    // Whether the resize keys are held with the free resize keys.
+    private var ignoreGrid = false
     private var lastFrame = CGRect.null
     // The window's app, to remember where its windows were on each display.
     private var app: String?
@@ -78,7 +80,17 @@ final class WindowMover {
         }
 
         let point = CGEvent(source: nil)?.location ?? .zero
-        let newOp = settings.enabled ? opForModifiers() : .none
+        let action = settings.enabled
+            ? settings.action(for: CGEventSource.flagsState(.combinedSessionState))
+            : .none
+        let newOp: Op
+        switch action {
+        case .none: newOp = .none
+        case .move: newOp = .move
+        case .resize, .freeResize: newOp = .resize
+        }
+        // Switching between them keeps the resize going.
+        ignoreGrid = action == .freeResize
 
         if newOp != op {
             endOperation()
@@ -93,18 +105,6 @@ final class WindowMover {
         case .resize: updateResize(point)
         case .none: break
         }
-    }
-
-    private func opForModifiers() -> Op {
-        let flags = CGEventSource.flagsState(.combinedSessionState)
-            .intersection(Modifier.relevantFlags)
-        if !settings.resizeFlags.isEmpty && flags == settings.resizeFlags {
-            return .resize
-        }
-        if !settings.moveFlags.isEmpty && flags == settings.moveFlags {
-            return .move
-        }
-        return .none
     }
 
     private func beginOperation(_ newOp: Op, at point: CGPoint, window: ManagedWindow? = nil) {
@@ -205,7 +205,10 @@ final class WindowMover {
         if resizeDirX > 0 { right += dx } else { left += dx }
         if resizeDirY > 0 { bottom += dy } else { top += dy }
 
-        let grid = currentGrid(point)
+        let grid = ignoreGrid ? nil : currentGrid(point)
+        if ignoreGrid {
+            overlays.hideGrid()
+        }
         let linesX = snapLinesX(top: top, height: bottom - top, grid)
         if resizeDirX > 0 {
             right += snap([right], linesX, grid)

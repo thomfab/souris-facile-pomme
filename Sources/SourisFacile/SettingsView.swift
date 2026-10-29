@@ -13,6 +13,7 @@ struct SettingsView: View {
     @AppStorage(Key.enabled) private var enabled = true
     @AppStorage(Key.moveModifiers) private var moveModifiers = Defaults.moveModifiers
     @AppStorage(Key.resizeModifiers) private var resizeModifiers = Defaults.resizeModifiers
+    @AppStorage(Key.freeResizeModifiers) private var freeResizeModifiers = Defaults.freeResizeModifiers
     @AppStorage(Key.raiseWindow) private var raiseWindow = false
     @AppStorage(Key.resizeNearestCorner) private var resizeNearestCorner = true
     @AppStorage(Key.snapThreshold) private var snapThreshold = Defaults.snapThreshold
@@ -144,6 +145,13 @@ struct SettingsView: View {
             Text("Hold these keys and move the mouse to resize the window under the pointer. Turn all off to disable.")
         }
         warningsSection
+        Section {
+            ModifierToggles(value: $freeResizeModifiers, excluded: Modifier.parse(resizeModifiers))
+        } header: {
+            Text("Resize Without Grid")
+        } footer: {
+            Text("Hold these keys too, on a display with a grid, to resize freely. Edges still snap to screen edges and other windows.")
+        }
         Section {
             Toggle(isOn: $resizeNearestCorner) {
                 Text("Resize from nearest corner")
@@ -412,9 +420,11 @@ private struct GridSizeFields: View {
 
 private struct ModifierToggles: View {
     @Binding var value: String
+    // Keys that can't be picked, as they're already used.
+    var excluded: Set<Modifier> = []
 
     var body: some View {
-        ForEach(Modifier.allCases) { modifier in
+        ForEach(Modifier.allCases.filter { !excluded.contains($0) }) { modifier in
             Toggle(modifier.label, isOn: Binding(
                 get: { Modifier.parse(value).contains(modifier) },
                 set: { isOn in

@@ -58,6 +58,7 @@ enum Key {
     static let enabled = "enabled"
     static let moveModifiers = "move-modifiers"
     static let resizeModifiers = "resize-modifiers"
+    static let freeResizeModifiers = "free-resize-modifiers"
     static let raiseWindow = "raise-window"
     static let resizeNearestCorner = "resize-nearest-corner"
     static let snapThreshold = "snap-threshold"
@@ -77,6 +78,7 @@ enum Key {
 enum Defaults {
     static let moveModifiers = "option"
     static let resizeModifiers = "option,command"
+    static let freeResizeModifiers = "shift"
     static let snapThreshold = 16
     static let gridColumns = 4
     static let gridRows = 3
@@ -87,6 +89,7 @@ enum Defaults {
             Key.enabled: true,
             Key.moveModifiers: moveModifiers,
             Key.resizeModifiers: resizeModifiers,
+            Key.freeResizeModifiers: freeResizeModifiers,
             Key.raiseWindow: false,
             Key.resizeNearestCorner: true,
             Key.snapThreshold: snapThreshold,
@@ -147,11 +150,20 @@ private func clampGrid(_ count: Int) -> Int {
     min(max(count, Defaults.gridRange.lowerBound), Defaults.gridRange.upperBound)
 }
 
+// What the held modifier keys do.
+enum KeyAction: Equatable {
+    case none, move, resize
+    // Resizing without snapping to the grid.
+    case freeResize
+}
+
 // A snapshot of the settings, read when no operation is running.
 struct Settings {
     var enabled: Bool
     var moveFlags: CGEventFlags
     var resizeFlags: CGEventFlags
+    // Added to the resize keys, resizes without the grid.
+    var freeResizeFlags: CGEventFlags
     var raiseWindow: Bool
     var resizeNearestCorner: Bool
     var snapThreshold: CGFloat
@@ -172,6 +184,7 @@ struct Settings {
             enabled: d.bool(forKey: Key.enabled),
             moveFlags: Modifier.flags(d.string(forKey: Key.moveModifiers) ?? ""),
             resizeFlags: Modifier.flags(d.string(forKey: Key.resizeModifiers) ?? ""),
+            freeResizeFlags: Modifier.flags(d.string(forKey: Key.freeResizeModifiers) ?? ""),
             raiseWindow: d.bool(forKey: Key.raiseWindow),
             resizeNearestCorner: d.bool(forKey: Key.resizeNearestCorner),
             snapThreshold: CGFloat(d.integer(forKey: Key.snapThreshold)),
@@ -186,6 +199,25 @@ struct Settings {
             sendWithArrows: d.bool(forKey: Key.sendWithArrows),
             rememberFrames: d.bool(forKey: Key.rememberFrames)
         )
+    }
+
+    // `flags` must match a combination exactly.
+    func action(for flags: CGEventFlags) -> KeyAction {
+        let flags = flags.intersection(Modifier.relevantFlags)
+        if !resizeFlags.isEmpty {
+            if flags == resizeFlags {
+                return .resize
+            }
+            // Keys already among the resize keys add nothing.
+            let free = freeResizeFlags.subtracting(resizeFlags)
+            if !free.isEmpty && flags == resizeFlags.union(free) {
+                return .freeResize
+            }
+        }
+        if !moveFlags.isEmpty && flags == moveFlags {
+            return .move
+        }
+        return .none
     }
 
     // The display's grid. A display never set up uses the settings from

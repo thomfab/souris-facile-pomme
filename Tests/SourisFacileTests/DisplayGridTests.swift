@@ -5,7 +5,7 @@ final class DisplayGridTests: XCTestCase {
     private let office = "37D8832A-2D66-02CA-B9F7-8F30A301B230"
 
     private func settings(_ grids: [String: DisplayGrid]) -> Settings {
-        Settings(enabled: true, moveFlags: [], resizeFlags: [], raiseWindow: false,
+        Settings(enabled: true, moveFlags: [], resizeFlags: [], freeResizeFlags: [], raiseWindow: false,
                  resizeNearestCorner: true, snapThreshold: 16, snapToWindows: true,
                  gridEnabled: true, gridColumns: 4, gridRows: 3, displayGrids: grids,
                  showGrid: true, dimWindows: true, sendWithScroll: true, sendWithArrows: true,
