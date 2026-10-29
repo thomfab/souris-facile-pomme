@@ -67,6 +67,8 @@ enum Key {
     static let displayGrids = "display-grids"
     static let showGrid = "show-grid"
     static let dimWindows = "dim-windows"
+    static let sendWithScroll = "send-with-scroll"
+    static let sendWithArrows = "send-with-arrows"
 }
 
 enum Defaults {
@@ -91,6 +93,8 @@ enum Defaults {
             Key.gridRows: gridRows,
             Key.showGrid: true,
             Key.dimWindows: true,
+            Key.sendWithScroll: true,
+            Key.sendWithArrows: true,
         ])
     }
 }
@@ -151,6 +155,8 @@ struct Settings {
     var displayGrids: [String: DisplayGrid]
     var showGrid: Bool
     var dimWindows: Bool
+    var sendWithScroll: Bool
+    var sendWithArrows: Bool
 
     static func load() -> Settings {
         let d = UserDefaults.standard
@@ -167,7 +173,9 @@ struct Settings {
             gridRows: clampGrid(d.integer(forKey: Key.gridRows)),
             displayGrids: DisplayGrid.decode(d.data(forKey: Key.displayGrids)),
             showGrid: d.bool(forKey: Key.showGrid),
-            dimWindows: d.bool(forKey: Key.dimWindows)
+            dimWindows: d.bool(forKey: Key.dimWindows),
+            sendWithScroll: d.bool(forKey: Key.sendWithScroll),
+            sendWithArrows: d.bool(forKey: Key.sendWithArrows)
         )
     }
 

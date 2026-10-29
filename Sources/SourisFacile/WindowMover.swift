@@ -9,6 +9,12 @@ final class WindowMover {
         case none, move, resize
     }
 
+    private enum SendTarget {
+        case toward(Direction)
+        // The next (1) or previous (-1) display.
+        case cycle(Int)
+    }
+
     private var settings = Settings.load()
     private var op = Op.none
     private var window: ManagedWindow?
@@ -24,6 +30,24 @@ final class WindowMover {
     private var otherRects: [CGRect] = []
     private let overlays = Overlays()
     private var updatePending = false
+    private var swipe = SwipeTracker()
+    private var lastWheelSend = Date.distantPast
+    // Arrow keys whose key down was swallowed, so their key up is too.
+    private var swallowedKeys: Set<Int64> = []
+
+    // Called by the event tap for every event it sees. Returns true to
+    // swallow the event, so the app under the pointer doesn't get it.
+    func handle(_ type: CGEventType, _ event: CGEvent) -> Bool {
+        switch type {
+        case .scrollWheel:
+            return handleScroll(event)
+        case .keyDown, .keyUp:
+            return handleKey(type, event)
+        default:
+            scheduleUpdate()
+            return false
+        }
+    }
 
     // Called for every pointer or modifier change. Bursts of events are
     // coalesced into one update, so a slow app doesn't make the pointer lag.
@@ -75,8 +99,8 @@ final class WindowMover {
         return .none
     }
 
-    private func beginOperation(_ newOp: Op, at point: CGPoint) {
-        guard let window = ManagedWindow.at(point),
+    private func beginOperation(_ newOp: Op, at point: CGPoint, window: ManagedWindow? = nil) {
+        guard let window = window ?? ManagedWindow.at(point),
               newOp == .move ? window.canMove : window.canResize,
               let rect = window.frame, rect.width > 0, rect.height > 0
         else { return }
@@ -185,6 +209,129 @@ final class WindowMover {
             _ = window.setOrigin(origin)
         }
     }
+
+    // MARK: Sending to another display
+
+    private func holdsMoveKeys(_ event: CGEvent) -> Bool {
+        if op == .none {
+            settings = Settings.load()
+        }
+        return settings.enabled && !settings.moveFlags.isEmpty
+            && event.flags.intersection(Modifier.relevantFlags) == settings.moveFlags
+    }
+
+    private func handleScroll(_ event: CGEvent) -> Bool {
+        guard holdsMoveKeys(event), settings.sendWithScroll else {
+            swipe.reset()
+            return false
+        }
+        // Undo natural scrolling, so the deltas follow the fingers or the
+        // wheel: x going right, y going down.
+        let inverted = NSEvent(cgEvent: event)?.isDirectionInvertedFromDevice ?? false
+        let sign: CGFloat = inverted ? 1 : -1
+        let dx = sign * event.getDoubleValueField(.scrollWheelEventPointDeltaAxis2)
+        let dy = sign * event.getDoubleValueField(.scrollWheelEventPointDeltaAxis1)
+
+        if event.getIntegerValueField(.scrollWheelEventIsContinuous) != 0 {
+            // A trackpad or Magic Mouse swipe goes toward a display.
+            let direction = swipe.feed(
+                phase: event.getIntegerValueField(.scrollWheelEventScrollPhase),
+                momentum: event.getIntegerValueField(.scrollWheelEventMomentumPhase) != 0,
+                dx: dx, dy: dy,
+                time: ProcessInfo.processInfo.systemUptime
+            )
+            if let direction {
+                sendLater(.toward(direction))
+            }
+        } else if dx != 0 || dy != 0, Date().timeIntervalSince(lastWheelSend) > 0.25 {
+            // A wheel notch goes to the next or previous display. A fast
+            // spin sends a burst of events: only the first one counts.
+            lastWheelSend = Date()
+            let forward = abs(dy) >= abs(dx) ? dy > 0 : dx > 0
+            sendLater(.cycle(forward ? 1 : -1))
+        }
+        return true
+    }
+
+    private func handleKey(_ type: CGEventType, _ event: CGEvent) -> Bool {
+        let code = event.getIntegerValueField(.keyboardEventKeycode)
+        if type == .keyUp {
+            return swallowedKeys.remove(code) != nil
+        }
+        guard let direction = Direction(arrowKeyCode: code),
+              holdsMoveKeys(event), settings.sendWithArrows
+        else { return false }
+        swallowedKeys.insert(code)
+        // Holding the key down doesn't keep sending.
+        if event.getIntegerValueField(.keyboardEventAutorepeat) == 0 {
+            sendLater(.toward(direction))
+        }
+        return true
+    }
+
+    // Out of the event tap, which must answer quickly.
+    private func sendLater(_ target: SendTarget) {
+        DispatchQueue.main.async { [self] in
+            send(target)
+        }
+    }
+
+    // Sends the window under the pointer (or the one being moved) to another
+    // display, at the same relative place and size, and the pointer with it.
+    private func send(_ target: SendTarget) {
+        let point = CGEvent(source: nil)?.location ?? .zero
+        let moving = op == .move
+        guard let window = moving ? self.window : ManagedWindow.at(point),
+              window.canMove, let frame = window.frame, frame.width > 0, frame.height > 0
+        else { return }
+
+        let screens = NSScreen.screens
+        let source = NSScreen.containing(CGPoint(x: frame.midX, y: frame.midY))
+        guard let source, let from = screens.firstIndex(of: source) else { return }
+        let frames = screens.map(\.globalFrame)
+        let to: Int?
+        switch target {
+        case .toward(let direction): to = display(toward: direction, from: from, among: frames)
+        case .cycle(let step): to = display(after: from, by: step, among: frames)
+        }
+        guard let to else { return }
+
+        let area = screens[to].globalVisibleFrame
+        let resizable = window.canResize
+        var newFrame = transfer(frame, from: source.globalVisibleFrame, to: area, keepSize: !resizable)
+        if settings.gridEnabled && resizable {
+            let size = settings.gridSize(forDisplay: screens[to].displayUUID)
+            newFrame = fitToGrid(newFrame, area: area, columns: size.columns, rows: size.rows)
+        }
+
+        endOperation()
+        if resizable {
+            guard window.setFrame(newFrame) else { return }
+            // Some apps adjust the size to the display they land on: insist once.
+            if window.frame != newFrame {
+                _ = window.setFrame(newFrame)
+            }
+        } else {
+            guard window.setOrigin(newFrame.origin) else { return }
+        }
+
+        // The pointer follows, at the same spot in the window.
+        let landed = window.frame ?? newFrame
+        let ratioX = min(max((point.x - frame.minX) / frame.width, 0), 1)
+        let ratioY = min(max((point.y - frame.minY) / frame.height, 0), 1)
+        let newPoint = CGPoint(x: (landed.minX + ratioX * landed.width).rounded(),
+                               y: (landed.minY + ratioY * landed.height).rounded())
+        CGWarpMouseCursorPosition(newPoint)
+        // Otherwise the pointer stays stuck for a moment after a warp.
+        CGAssociateMouseAndMouseCursorPosition(1)
+
+        // Carry on moving it from there, even if other windows cover that spot.
+        if moving {
+            beginOperation(.move, at: newPoint, window: window)
+        }
+    }
+
+    // MARK: Snapping
 
     // Records the screen work areas and the other windows' frames, and
     // returns the window server ID of the window being handled, if found.

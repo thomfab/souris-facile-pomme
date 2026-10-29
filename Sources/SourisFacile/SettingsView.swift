@@ -16,6 +16,8 @@ struct SettingsView: View {
     @AppStorage(Key.displayGrids) private var displayGridsData = Data()
     @AppStorage(Key.showGrid) private var showGrid = true
     @AppStorage(Key.dimWindows) private var dimWindows = true
+    @AppStorage(Key.sendWithScroll) private var sendWithScroll = true
+    @AppStorage(Key.sendWithArrows) private var sendWithArrows = true
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var accessGranted = isAccessibilityTrusted()
     @State private var displays = ConnectedDisplay.all()
@@ -62,6 +64,22 @@ struct SettingsView: View {
                     }
                 }
             }
+
+            Section {
+                Toggle(isOn: $sendWithScroll) {
+                    Text("Swipe or scroll")
+                    Text("Swipe two fingers on a trackpad or Magic Mouse toward a display. A mouse wheel goes to the next or previous display.")
+                }
+                Toggle(isOn: $sendWithArrows) {
+                    Text("Arrow keys")
+                    Text("Press an arrow key to go to the display in that direction.")
+                }
+            } header: {
+                Text("Send to Another Display")
+            } footer: {
+                Text("Hold the move keys over a window and swipe, scroll or press an arrow key. The window keeps its relative place and size, fits the grid of the display it lands on, and the pointer goes with it.")
+            }
+            .disabled(Modifier.parse(moveModifiers).isEmpty)
 
             Section("Behavior") {
                 Toggle("Raise window", isOn: $raiseWindow)
@@ -138,7 +156,7 @@ struct SettingsView: View {
                         }
                     }
                 } header: {
-                    Text("Other Displays")
+                    Text("Unplugged Displays")
                 } footer: {
                     Text("Remembered grid sizes of displays that aren't plugged in. They apply again as soon as the display is.")
                 }

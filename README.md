@@ -50,8 +50,29 @@ Each display can have its own grid size, e.g. 2 × 2 on the laptop screen and
 Sizes are remembered per physical display, so plugging the laptop into your
 monitors at home or at the office brings their grids back. In the settings,
 **Preview Grid** briefly draws a display's grid on it to tell displays apart,
-and displays that aren't plugged in are listed under **Other Displays**, where
+and displays that aren't plugged in are listed under **Unplugged Displays**, where
 they can be forgotten.
+
+### Sending a window to another display
+
+While holding the move keys over a window:
+
+- **Swipe two fingers** on a trackpad or a Magic Mouse toward another
+  display: the window goes to the display in that direction, following the
+  arrangement in System Settings → Displays. One swipe moves it once.
+- **Scroll the mouse wheel**: the window goes to the next or previous
+  display, left to right.
+- **Press an arrow key**: the window goes to the display in that direction.
+
+The window keeps its relative place and size (a window on the left half of
+the laptop screen lands on the left half of the monitor), fits the grid of
+that display when the grid is on, and the pointer goes with it, so you can
+keep moving it. Swipes, scrolls and arrow keys used this way don't reach the
+app under the pointer. Both can be turned off in the settings.
+
+If Accessibility Zoom is set to zoom with a scroll gesture and the Control
+key, it may react to the same swipes: pick another modifier for it in System
+Settings → Accessibility → Zoom.
 
 ## Menu bar
 
@@ -81,6 +102,8 @@ Click the mouse icon in the menu bar, then **Settings…**.
 | Grid size per display     | Default grid            |
 | Show grid                  | On                      |
 | Dim other windows          | On                      |
+| Send with swipe or scroll  | On                      |
+| Send with arrow keys       | On                      |
 
 ## Building
 

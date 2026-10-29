@@ -3,7 +3,12 @@ import SwiftUI
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let mover = WindowMover()
-    private var monitors: [Any] = []
+    private lazy var tap = EventTap(types: [
+        .mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged, .flagsChanged,
+        .scrollWheel, .keyDown, .keyUp,
+    ]) { [mover] type, event in
+        mover.handle(type, event)
+    }
     private var accessTimer: Timer?
     private var statusItem: NSStatusItem!
     private var enabledItem: NSMenuItem!
@@ -13,54 +18,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         Defaults.register()
         setUpStatusItem()
-        installMonitors()
 
         if !isAccessibilityTrusted(prompt: true) {
             showSettings()
+        }
+        if !tap.start() {
             watchAccessibility()
         }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        removeMonitors()
+        tap.stop()
         accessTimer?.invalidate()
         mover.stop()
     }
 
-    private func installMonitors() {
-        removeMonitors()
-        let events: NSEvent.EventTypeMask = [
-            .mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged, .flagsChanged,
-        ]
-        let mover = mover
-        // Global monitors miss events sent to this app (e.g. over the
-        // settings window), so watch those locally too.
-        if let monitor = NSEvent.addGlobalMonitorForEvents(matching: events, handler: { _ in
-            mover.scheduleUpdate()
-        }) {
-            monitors.append(monitor)
-        }
-        if let monitor = NSEvent.addLocalMonitorForEvents(matching: events, handler: { event in
-            mover.scheduleUpdate()
-            return event
-        }) {
-            monitors.append(monitor)
-        }
-    }
-
-    private func removeMonitors() {
-        monitors.forEach(NSEvent.removeMonitor)
-        monitors = []
-    }
-
-    // Global monitors installed before access was granted don't see key
-    // events, so install them again once it is.
+    // The event tap can only start once access is granted: keep trying.
     private func watchAccessibility() {
         accessTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] timer in
-            guard isAccessibilityTrusted() else { return }
+            guard let self, self.tap.start() else { return }
             timer.invalidate()
-            self?.accessTimer = nil
-            self?.installMonitors()
+            self.accessTimer = nil
         }
     }
 
@@ -113,7 +91,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func grantAccess() {
         if !isAccessibilityTrusted(prompt: true) {
             openAccessibilitySettings()
-            if accessTimer == nil {
+            if accessTimer == nil && !tap.isRunning {
                 watchAccessibility()
             }
         }
