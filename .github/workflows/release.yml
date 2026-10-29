@@ -1,0 +1,42 @@
+name: Release
+
+# Pushing a version tag (e.g. v0.1) builds the app and publishes it as a
+# GitHub release. The tag must match CFBundleShortVersionString in Info.plist.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the version
+        run: |
+          version=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" Resources/Info.plist)
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "Tag $GITHUB_REF_NAME doesn't match Info.plist version $version"
+            exit 1
+          fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+      - name: Test
+        run: make test
+
+      - name: Build
+        run: make release
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" "build/SourisFacile-$VERSION.zip" \
+            --title "Souris Facile $VERSION" \
+            --notes "Universal build for macOS 13 or later (Apple Silicon and Intel).
+
+          The app is signed ad hoc, not notarized, so macOS blocks it the first time. Move it to Applications, try to open it, then click **Open Anyway** in System Settings → Privacy & Security (or run \`xattr -dr com.apple.quarantine /Applications/SourisFacile.app\`). Then grant it Accessibility access when asked."
