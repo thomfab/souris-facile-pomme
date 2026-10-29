@@ -67,12 +67,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func setUpStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         statusItem.button?.image = NSImage(systemSymbolName: "computermouse",
-                                           accessibilityDescription: "Souris Facile")
+                                           accessibilityDescription: "Souris facile pomme")
 
         let menu = NSMenu()
         menu.delegate = self
 
-        menu.addItem(item("About Souris Facile", #selector(showAbout)))
+        menu.addItem(item("About Souris facile pomme", #selector(showAbout)))
         menu.addItem(.separator())
 
         enabledItem = item("Enabled", #selector(toggleEnabled))
@@ -85,7 +85,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(item("Settings…", #selector(showSettings), key: ","))
 
         menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: "Quit Souris Facile",
+        menu.addItem(NSMenuItem(title: "Quit Souris facile pomme",
                                 action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
 
         statusItem.menu = menu
@@ -141,7 +141,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func showSettings() {
         if settingsWindow == nil {
             let window = NSWindow(contentViewController: NSHostingController(rootView: SettingsView()))
-            window.title = "Souris Facile Settings"
+            window.title = "Souris facile pomme Settings"
             window.styleMask = [.titled, .closable]
             window.isReleasedWhenClosed = false
             window.center()

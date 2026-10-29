@@ -35,8 +35,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" "build/SourisFacile-$VERSION.zip" \
-            --title "Souris Facile $VERSION" \
+          gh release create "$GITHUB_REF_NAME" "build/SourisFacilePomme-$VERSION.zip" \
+            --title "Souris facile pomme $VERSION" \
             --notes "Universal build for macOS 13 or later (Apple Silicon and Intel).
 
-          The app is signed ad hoc, not notarized, so macOS blocks it the first time. Move it to Applications, try to open it, then click **Open Anyway** in System Settings → Privacy & Security (or run \`xattr -dr com.apple.quarantine /Applications/SourisFacile.app\`). Then grant it Accessibility access when asked."
+          The app is signed ad hoc, not notarized, so macOS blocks it the first time. Move it to Applications, try to open it, then click **Open Anyway** in System Settings → Privacy & Security (or run \`xattr -dr com.apple.quarantine /Applications/Souris\ facile\ pomme.app\`). Then grant it Accessibility access when asked."

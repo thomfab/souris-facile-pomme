@@ -29,7 +29,7 @@ struct SettingsView: View {
                             .foregroundStyle(.orange)
                     }
                 } footer: {
-                    Text("Turn on Souris Facile in Privacy & Security → Accessibility so it can see the keys you hold and move other apps' windows.")
+                    Text("Turn on Souris facile pomme in Privacy & Security → Accessibility so it can see the keys you hold and move other apps' windows.")
                 }
             }
 

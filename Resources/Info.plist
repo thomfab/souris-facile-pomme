@@ -7,11 +7,11 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>en</string>
     <key>CFBundleIdentifier</key>
-    <string>com.thomfab.souris-facile</string>
+    <string>com.thomfab.souris-facile-pomme</string>
     <key>CFBundleName</key>
-    <string>Souris Facile</string>
+    <string>Souris facile pomme</string>
     <key>CFBundleDisplayName</key>
-    <string>Souris Facile</string>
+    <string>Souris facile pomme</string>
     <key>CFBundleExecutable</key>
     <string>SourisFacile</string>
     <key>CFBundlePackageType</key>

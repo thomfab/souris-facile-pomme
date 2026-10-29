@@ -15,5 +15,5 @@ jobs:
         run: make release
       - uses: actions/upload-artifact@v4
         with:
-          name: SourisFacile
-          path: build/SourisFacile-*.zip
+          name: SourisFacilePomme
+          path: build/SourisFacilePomme-*.zip

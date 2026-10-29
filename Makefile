@@ -1,13 +1,13 @@
-APP := build/SourisFacile.app
+APP := build/Souris facile pomme.app
 ICON := build/AppIcon.icns
 ARCHS := --arch arm64 --arch x86_64
 VERSION = $(shell /usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" Resources/Info.plist)
-ZIP = build/SourisFacile-$(VERSION).zip
+ZIP = build/SourisFacilePomme-$(VERSION).zip
 # "-" signs ad hoc. Use a stable identity (e.g. "Developer ID Application: …"
 # or a self-signed certificate) so the Accessibility permission survives rebuilds.
 SIGN_IDENTITY ?= -
 # A keychain profile saved with `xcrun notarytool store-credentials`.
-NOTARY_PROFILE ?= souris-facile
+NOTARY_PROFILE ?= souris-facile-pomme
 # Notarization needs a secure timestamp, which ad hoc signatures can't have.
 TIMESTAMP := $(if $(filter -,$(SIGN_IDENTITY)),,--timestamp)
 
@@ -16,13 +16,13 @@ TIMESTAMP := $(if $(filter -,$(SIGN_IDENTITY)),,--timestamp)
 # Universal (Apple Silicon + Intel) release build, packaged as an app bundle.
 app: $(ICON)
 	swift build -c release $(ARCHS)
-	rm -rf $(APP)
-	mkdir -p $(APP)/Contents/MacOS $(APP)/Contents/Resources
-	cp "$$(swift build -c release $(ARCHS) --show-bin-path)/SourisFacile" $(APP)/Contents/MacOS/
-	cp Resources/Info.plist $(APP)/Contents/
-	cp $(ICON) $(APP)/Contents/Resources/
-	codesign --force --options runtime $(TIMESTAMP) --sign "$(SIGN_IDENTITY)" $(APP)
-	lipo -archs $(APP)/Contents/MacOS/SourisFacile
+	rm -rf "$(APP)"
+	mkdir -p "$(APP)/Contents/MacOS" "$(APP)/Contents/Resources"
+	cp "$$(swift build -c release $(ARCHS) --show-bin-path)/SourisFacile" "$(APP)/Contents/MacOS/"
+	cp Resources/Info.plist "$(APP)/Contents/"
+	cp $(ICON) "$(APP)/Contents/Resources/"
+	codesign --force --options runtime $(TIMESTAMP) --sign "$(SIGN_IDENTITY)" "$(APP)"
+	lipo -archs "$(APP)/Contents/MacOS/SourisFacile"
 
 $(ICON): Resources/AppIcon.png
 	rm -rf build/AppIcon.iconset
@@ -34,19 +34,19 @@ $(ICON): Resources/AppIcon.png
 	iconutil -c icns build/AppIcon.iconset -o $@
 
 run: app
-	open $(APP)
+	open "$(APP)"
 
 test:
 	swift test
 
 install: app
-	rm -rf /Applications/SourisFacile.app
-	cp -R $(APP) /Applications/
+	rm -rf "/Applications/Souris facile pomme.app"
+	cp -R "$(APP)" /Applications/
 
 # A zip of the app, ready to share.
 release: app
 	rm -f $(ZIP)
-	ditto -c -k --keepParent $(APP) $(ZIP)
+	ditto -c -k --keepParent "$(APP)" $(ZIP)
 	@echo $(ZIP)
 
 # Notarizes the app with Apple and staples the ticket, so it opens without
@@ -56,9 +56,9 @@ notarize: release
 		echo 'Set SIGN_IDENTITY="Developer ID Application: …" to notarize.'; exit 1; \
 	fi
 	xcrun notarytool submit $(ZIP) --keychain-profile "$(NOTARY_PROFILE)" --wait
-	xcrun stapler staple $(APP)
+	xcrun stapler staple "$(APP)"
 	rm -f $(ZIP)
-	ditto -c -k --keepParent $(APP) $(ZIP)
+	ditto -c -k --keepParent "$(APP)" $(ZIP)
 	@echo $(ZIP)
 
 clean:

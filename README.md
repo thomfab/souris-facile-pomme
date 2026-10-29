@@ -1,4 +1,4 @@
-# Souris Facile (macOS)
+# Souris facile pomme
 
 A macOS menu bar app to move or resize the window under the pointer by holding
 modifier keys and moving the mouse: no clicking, no dragging, no aiming for a
@@ -47,14 +47,14 @@ bright, so turn on "Raise window" if you want everything else dimmed.
 
 ## Menu bar
 
-Souris Facile has no Dock icon: everything is in the mouse icon in the menu
+Souris facile pomme has no Dock icon: everything is in the mouse icon in the menu
 bar.
 
-- **About Souris Facile**: version and project page.
+- **About Souris facile pomme**: version and project page.
 - **Enabled**: turns moving and resizing on or off.
 - **Grant Accessibility Access…**: shown until access is granted.
 - **Settings…** (`⌘,`)
-- **Quit Souris Facile** (`⌘Q`)
+- **Quit Souris facile pomme** (`⌘Q`)
 
 ## Settings
 
@@ -78,19 +78,19 @@ Click the mouse icon in the menu bar, then **Settings…**.
 Requires macOS 13 or later and Xcode (or the Xcode command line tools).
 
 ```sh
-make app       # universal (Apple Silicon + Intel) build in build/SourisFacile.app
+make app       # universal (Apple Silicon + Intel) build in "build/Souris facile pomme.app"
 make run       # build and launch
 make install   # copy to /Applications
 make test      # run the unit tests
 ```
 
-On first launch, macOS asks to grant Souris Facile **Accessibility** access
+On first launch, macOS asks to grant Souris facile pomme **Accessibility** access
 (System Settings → Privacy & Security → Accessibility). It's needed to see the
 keys you hold and to move other apps' windows. The app notices when access is
 granted, so there's no need to relaunch it.
 
 The app is signed ad hoc by default, so macOS treats every rebuild as a new
-app: after rebuilding, remove Souris Facile from the Accessibility list and
+app: after rebuilding, remove Souris facile pomme from the Accessibility list and
 add it again. Signing with a stable identity avoids that:
 
 ```sh
@@ -101,10 +101,10 @@ To open the project in Xcode, run `open Package.swift`.
 
 ### Releasing
 
-`make release` builds `build/SourisFacile-<version>.zip`, with the version
+`make release` builds `build/SourisFacilePomme-<version>.zip`, with the version
 taken from `Resources/Info.plist`. To share it beyond your own Macs, sign
 with a Developer ID and have Apple notarize it, after saving your notary
-credentials once with `xcrun notarytool store-credentials souris-facile`:
+credentials once with `xcrun notarytool store-credentials souris-facile-pomme`:
 
 ```sh
 make notarize SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)"
