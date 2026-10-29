@@ -45,6 +45,14 @@ under the pointer, and its lines can be shown while you move or resize, with
 the other windows dimmed. Windows stacked above the one you are moving stay
 bright, so turn on "Raise window" if you want everything else dimmed.
 
+Each display can have its own grid size, e.g. 2 × 2 on the laptop screen and
+6 × 2 on an ultrawide monitor. Displays without one use the default grid.
+Sizes are remembered per physical display, so plugging the laptop into your
+monitors at home or at the office brings their grids back. In the settings,
+**Preview Grid** briefly draws a display's grid on it to tell displays apart,
+and displays that aren't plugged in are listed under **Other Displays**, where
+they can be forgotten.
+
 ## Menu bar
 
 Souris facile pomme has no Dock icon: everything is in the mouse icon in the menu
@@ -70,6 +78,7 @@ Click the mouse icon in the menu bar, then **Settings…**.
 | Snap distance              | 16 pt                   |
 | Snap to other windows      | On                      |
 | Snap to grid               | Off (4 × 3)             |
+| Grid size per display     | Default grid            |
 | Show grid                  | On                      |
 | Dim other windows          | On                      |
 

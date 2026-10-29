@@ -47,12 +47,14 @@ private final class GridView: NSView {
 
 final class Overlays {
     private var grid: NSWindow?
-    private var gridArea: CGRect?
+    private var gridShown: (area: CGRect, columns: Int, rows: Int)?
     private var dimmers: [NSWindow] = []
 
     // Shows the grid lines over `area` (a screen's visible frame).
     func showGrid(over area: CGRect, columns: Int, rows: Int) {
-        if grid != nil && gridArea == area { return }
+        if let shown = gridShown, shown.area == area, shown.columns == columns, shown.rows == rows {
+            return
+        }
         hideGrid()
 
         let window = makeOverlayWindow(globalFrame: area)
@@ -60,13 +62,13 @@ final class Overlays {
         window.level = .statusBar
         window.orderFrontRegardless()
         grid = window
-        gridArea = area
+        gridShown = (area, columns, rows)
     }
 
     func hideGrid() {
         grid?.orderOut(nil)
         grid = nil
-        gridArea = nil
+        gridShown = nil
     }
 
     // Darkens every screen, right below the given window so it stays bright.

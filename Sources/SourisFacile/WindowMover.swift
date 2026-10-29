@@ -216,8 +216,8 @@ final class WindowMover {
     // Vertical lines a window spanning [top, top + height] can snap to.
     private func snapLinesX(top: CGFloat, height: CGFloat, _ point: CGPoint) -> [CGFloat] {
         if settings.gridEnabled {
-            let area = currentGridArea(point)
-            return divide(area.minX, area.width, settings.gridColumns)
+            let grid = currentGrid(point)
+            return divide(grid.area.minX, grid.area.width, grid.columns)
         }
 
         var lines = workAreas.flatMap { [$0.minX, $0.maxX] }
@@ -233,8 +233,8 @@ final class WindowMover {
     // Horizontal lines a window spanning [left, left + width] can snap to.
     private func snapLinesY(left: CGFloat, width: CGFloat, _ point: CGPoint) -> [CGFloat] {
         if settings.gridEnabled {
-            let area = currentGridArea(point)
-            return divide(area.minY, area.height, settings.gridRows)
+            let grid = currentGrid(point)
+            return divide(grid.area.minY, grid.area.height, grid.rows)
         }
 
         var lines = workAreas.flatMap { [$0.minY, $0.maxY] }
@@ -247,12 +247,14 @@ final class WindowMover {
         return lines
     }
 
-    // The grid follows the screen under the pointer.
-    private func currentGridArea(_ point: CGPoint) -> CGRect {
-        let area = NSScreen.containing(point)?.globalVisibleFrame ?? workAreas.first ?? .zero
+    // The grid follows the screen under the pointer, with that screen's size.
+    private func currentGrid(_ point: CGPoint) -> (area: CGRect, columns: Int, rows: Int) {
+        let screen = NSScreen.containing(point)
+        let area = screen?.globalVisibleFrame ?? workAreas.first ?? .zero
+        let size = settings.gridSize(forDisplay: screen?.displayUUID)
         if settings.showGrid {
-            overlays.showGrid(over: area, columns: settings.gridColumns, rows: settings.gridRows)
+            overlays.showGrid(over: area, columns: size.columns, rows: size.rows)
         }
-        return area
+        return (area, size.columns, size.rows)
     }
 }

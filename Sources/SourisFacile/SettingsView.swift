@@ -1,3 +1,4 @@
+import AppKit
 import Combine
 import ServiceManagement
 import SwiftUI
@@ -12,10 +13,13 @@ struct SettingsView: View {
     @AppStorage(Key.gridEnabled) private var gridEnabled = false
     @AppStorage(Key.gridColumns) private var gridColumns = Defaults.gridColumns
     @AppStorage(Key.gridRows) private var gridRows = Defaults.gridRows
+    @AppStorage(Key.displayGrids) private var displayGridsData = Data()
     @AppStorage(Key.showGrid) private var showGrid = true
     @AppStorage(Key.dimWindows) private var dimWindows = true
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var accessGranted = isAccessibilityTrusted()
+    @State private var displays = ConnectedDisplay.all()
+    @State private var preview = GridPreview()
     private let accessCheck = Timer.publish(every: 2, on: .main, in: .common).autoconnect()
 
     var body: some View {
@@ -91,18 +95,7 @@ struct SettingsView: View {
             Section {
                 Toggle("Snap to grid", isOn: $gridEnabled)
                 Group {
-                    Picker("Grid size", selection: presetSelection) {
-                        ForEach(gridPresets.indices, id: \.self) { index in
-                            Text(gridPresets[index].label).tag(index)
-                        }
-                        Text("Custom").tag(-1)
-                    }
-                    Stepper(value: $gridColumns, in: 1...48) {
-                        Text("Columns: \(gridColumns)")
-                    }
-                    Stepper(value: $gridRows, in: 1...48) {
-                        Text("Rows: \(gridRows)")
-                    }
+                    GridSizeFields(title: "Default grid size", columns: $gridColumns, rows: $gridRows)
                     Toggle("Show grid", isOn: $showGrid)
                     Toggle("Dim other windows", isOn: $dimWindows)
                 }
@@ -110,13 +103,145 @@ struct SettingsView: View {
             } header: {
                 Text("Grid")
             } footer: {
-                Text("Divide each screen into a grid. Moved and resized edges always snap to its lines.")
+                Text("Divide each screen into a grid. Moved and resized edges always snap to its lines. Displays without their own grid size use the default one.")
+            }
+
+            ForEach(displays) { display in
+                Section {
+                    Toggle(isOn: hasOwnGrid(display)) {
+                        Text("Own grid size")
+                        Text("Otherwise uses the default, \(gridColumns) × \(gridRows).")
+                    }
+                    if displayGrids[display.uuid] != nil {
+                        GridSizeFields(title: "Grid size",
+                                       columns: displayGridSize(display, \.columns),
+                                       rows: displayGridSize(display, \.rows))
+                    }
+                    Button("Preview Grid") { previewGrid(on: display) }
+                } header: {
+                    Text(display.name)
+                }
+                .disabled(!gridEnabled)
+            }
+
+            let unplugged = displayGrids
+                .filter { entry in !displays.contains { $0.uuid == entry.key } }
+                .sorted { $0.value.name < $1.value.name }
+            if !unplugged.isEmpty {
+                Section {
+                    ForEach(unplugged, id: \.key) { entry in
+                        LabeledContent {
+                            Button("Forget") { setDisplayGrid(nil, for: entry.key) }
+                        } label: {
+                            Text(entry.value.name)
+                            Text("\(entry.value.columns) × \(entry.value.rows)")
+                        }
+                    }
+                } header: {
+                    Text("Other Displays")
+                } footer: {
+                    Text("Remembered grid sizes of displays that aren't plugged in. They apply again as soon as the display is.")
+                }
             }
         }
         .formStyle(.grouped)
-        .frame(width: 480, height: 640)
+        .frame(width: 480, height: 720)
         .onReceive(accessCheck) { _ in
             accessGranted = isAccessibilityTrusted()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)) { _ in
+            displays = ConnectedDisplay.all()
+        }
+    }
+
+    private var displayGrids: [String: DisplayGrid] {
+        DisplayGrid.decode(displayGridsData)
+    }
+
+    private func setDisplayGrid(_ grid: DisplayGrid?, for uuid: String) {
+        var grids = displayGrids
+        grids[uuid] = grid
+        displayGridsData = DisplayGrid.encode(grids)
+    }
+
+    private func hasOwnGrid(_ display: ConnectedDisplay) -> Binding<Bool> {
+        Binding(
+            get: { displayGrids[display.uuid] != nil },
+            set: { isOn in
+                let grid = isOn ? DisplayGrid(name: display.name, columns: gridColumns, rows: gridRows) : nil
+                setDisplayGrid(grid, for: display.uuid)
+            }
+        )
+    }
+
+    private func displayGridSize(_ display: ConnectedDisplay,
+                                 _ keyPath: WritableKeyPath<DisplayGrid, Int>) -> Binding<Int> {
+        Binding(
+            get: { displayGrids[display.uuid]?[keyPath: keyPath] ?? 1 },
+            set: { value in
+                guard var grid = displayGrids[display.uuid] else { return }
+                grid[keyPath: keyPath] = value
+                grid.name = display.name
+                setDisplayGrid(grid, for: display.uuid)
+                previewGrid(on: display)
+            }
+        )
+    }
+
+    // Briefly shows the display's grid on it, to tell displays apart.
+    private func previewGrid(on display: ConnectedDisplay) {
+        guard let screen = NSScreen.screens.first(where: { $0.displayUUID == display.uuid }) else { return }
+        let grid = displayGrids[display.uuid]
+        preview.show(over: screen.globalVisibleFrame,
+                     columns: grid?.columns ?? gridColumns, rows: grid?.rows ?? gridRows)
+    }
+}
+
+private struct ConnectedDisplay: Identifiable {
+    let uuid: String
+    let name: String
+    var id: String { uuid }
+
+    static func all() -> [ConnectedDisplay] {
+        NSScreen.screens.compactMap { screen in
+            screen.displayUUID.map { ConnectedDisplay(uuid: $0, name: screen.localizedName) }
+        }
+    }
+}
+
+private final class GridPreview {
+    private let overlays = Overlays()
+    private var shownAt = Date.distantPast
+
+    func show(over area: CGRect, columns: Int, rows: Int) {
+        overlays.showGrid(over: area, columns: columns, rows: rows)
+        let shownAt = Date()
+        self.shownAt = shownAt
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+            // Showing it again keeps it up for another 2 seconds.
+            guard let self, self.shownAt == shownAt else { return }
+            self.overlays.hideGrid()
+        }
+    }
+}
+
+private struct GridSizeFields: View {
+    let title: String
+    @Binding var columns: Int
+    @Binding var rows: Int
+
+    var body: some View {
+        Picker(title, selection: presetSelection) {
+            ForEach(gridPresets.indices, id: \.self) { index in
+                Text(gridPresets[index].label).tag(index)
+            }
+            Text("Custom").tag(-1)
+        }
+        Stepper(value: $columns, in: Defaults.gridRange) {
+            Text("Columns: \(columns)")
+        }
+        Stepper(value: $rows, in: Defaults.gridRange) {
+            Text("Rows: \(rows)")
         }
     }
 
@@ -124,12 +249,12 @@ struct SettingsView: View {
     private var presetSelection: Binding<Int> {
         Binding(
             get: {
-                gridPresets.firstIndex { $0.columns == gridColumns && $0.rows == gridRows } ?? -1
+                gridPresets.firstIndex { $0.columns == columns && $0.rows == rows } ?? -1
             },
             set: { index in
                 guard gridPresets.indices.contains(index) else { return }
-                gridColumns = gridPresets[index].columns
-                gridRows = gridPresets[index].rows
+                columns = gridPresets[index].columns
+                rows = gridPresets[index].rows
             }
         )
     }

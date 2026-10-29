@@ -64,6 +64,7 @@ enum Key {
     static let gridEnabled = "grid-enabled"
     static let gridColumns = "grid-columns"
     static let gridRows = "grid-rows"
+    static let displayGrids = "display-grids"
     static let showGrid = "show-grid"
     static let dimWindows = "dim-windows"
 }
@@ -74,6 +75,7 @@ enum Defaults {
     static let snapThreshold = 16
     static let gridColumns = 4
     static let gridRows = 3
+    static let gridRange = 1...48
 
     static func register() {
         UserDefaults.standard.register(defaults: [
@@ -109,6 +111,31 @@ let gridPresets = [
     GridPreset(name: "Ultrawide, fine", columns: 8, rows: 3),
 ]
 
+// A grid size for one display, remembered by the display's UUID so it
+// applies again whenever that display is plugged back in.
+struct DisplayGrid: Codable, Equatable {
+    // The display's name, to list it in the settings while it's unplugged.
+    var name: String
+    var columns: Int
+    var rows: Int
+
+    // All of them are stored as JSON, keyed by display UUID.
+    static func decode(_ data: Data?) -> [String: DisplayGrid] {
+        guard let data, let grids = try? JSONDecoder().decode([String: DisplayGrid].self, from: data) else {
+            return [:]
+        }
+        return grids
+    }
+
+    static func encode(_ grids: [String: DisplayGrid]) -> Data {
+        (try? JSONEncoder().encode(grids)) ?? Data()
+    }
+}
+
+private func clampGrid(_ count: Int) -> Int {
+    min(max(count, Defaults.gridRange.lowerBound), Defaults.gridRange.upperBound)
+}
+
 // A snapshot of the settings, read when no operation is running.
 struct Settings {
     var enabled: Bool
@@ -121,6 +148,7 @@ struct Settings {
     var gridEnabled: Bool
     var gridColumns: Int
     var gridRows: Int
+    var displayGrids: [String: DisplayGrid]
     var showGrid: Bool
     var dimWindows: Bool
 
@@ -135,10 +163,17 @@ struct Settings {
             snapThreshold: CGFloat(d.integer(forKey: Key.snapThreshold)),
             snapToWindows: d.bool(forKey: Key.snapToWindows),
             gridEnabled: d.bool(forKey: Key.gridEnabled),
-            gridColumns: min(max(d.integer(forKey: Key.gridColumns), 1), 48),
-            gridRows: min(max(d.integer(forKey: Key.gridRows), 1), 48),
+            gridColumns: clampGrid(d.integer(forKey: Key.gridColumns)),
+            gridRows: clampGrid(d.integer(forKey: Key.gridRows)),
+            displayGrids: DisplayGrid.decode(d.data(forKey: Key.displayGrids)),
             showGrid: d.bool(forKey: Key.showGrid),
             dimWindows: d.bool(forKey: Key.dimWindows)
         )
+    }
+
+    // The display's own grid size if it has one, else the default.
+    func gridSize(forDisplay uuid: String?) -> (columns: Int, rows: Int) {
+        guard let uuid, let grid = displayGrids[uuid] else { return (gridColumns, gridRows) }
+        return (clampGrid(grid.columns), clampGrid(grid.rows))
     }
 }

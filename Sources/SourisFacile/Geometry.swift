@@ -1,4 +1,5 @@
 import AppKit
+import ApplicationServices
 
 // Everything works in global display coordinates, as used by Quartz and the
 // Accessibility API: origin at the top-left of the main display, y going down.
@@ -14,6 +15,15 @@ extension NSScreen {
     var globalFrame: CGRect { flipped(frame) }
     // The frame minus the menu bar and the Dock.
     var globalVisibleFrame: CGRect { flipped(visibleFrame) }
+
+    // Identifies the physical display, and stays the same when it's
+    // unplugged and plugged back in, or after a restart.
+    var displayUUID: String? {
+        guard let number = deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber,
+              let uuid = CGDisplayCreateUUIDFromDisplayID(number.uint32Value)?.takeRetainedValue()
+        else { return nil }
+        return CFUUIDCreateString(nil, uuid) as String
+    }
 
     static func containing(_ point: CGPoint) -> NSScreen? {
         screens.first { $0.globalFrame.contains(point) } ?? main
