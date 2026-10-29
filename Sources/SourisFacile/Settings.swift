@@ -46,8 +46,7 @@ enum Modifier: String, CaseIterable, Identifiable {
         if !move.isEmpty && move == resize {
             warnings.append("Move and Resize use the same keys, so only resizing works.")
         }
-        // Option alone is fine: it's rarely held while the mouse moves.
-        for (name, modifiers) in [("Move", move), ("Resize", resize)] where modifiers.count == 1 && modifiers != [.option] {
+        for (name, modifiers) in [("Move", move), ("Resize", resize)] where modifiers.count == 1 {
             warnings.append("\(name) uses \(modifiers.first!.label) alone, which is held for ordinary shortcuts and typing. Add another key.")
         }
         return warnings
@@ -76,8 +75,8 @@ enum Key {
 }
 
 enum Defaults {
-    static let moveModifiers = "option"
-    static let resizeModifiers = "option,command"
+    static let moveModifiers = "control,option"
+    static let resizeModifiers = "control,option,command"
     static let freeResizeModifiers = "shift"
     static let snapThreshold = 16
     static let gridColumns = 4

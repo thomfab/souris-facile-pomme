@@ -15,26 +15,27 @@ final class KeyActionTests: XCTestCase {
 
     func testDefaults() {
         let s = settings()
-        XCTAssertEqual(s.action(for: [.maskAlternate]), .move)
-        XCTAssertEqual(s.action(for: [.maskAlternate, .maskCommand]), .resize)
-        XCTAssertEqual(s.action(for: [.maskAlternate, .maskCommand, .maskShift]), .freeResize)
-        XCTAssertEqual(s.action(for: [.maskAlternate, .maskShift]), .none)
+        XCTAssertEqual(s.action(for: [.maskControl, .maskAlternate]), .move)
+        XCTAssertEqual(s.action(for: [.maskControl, .maskAlternate, .maskCommand]), .resize)
+        XCTAssertEqual(s.action(for: [.maskControl, .maskAlternate, .maskCommand, .maskShift]), .freeResize)
+        XCTAssertEqual(s.action(for: [.maskControl, .maskAlternate, .maskShift]), .none)
+        XCTAssertEqual(s.action(for: [.maskAlternate]), .none)
         XCTAssertEqual(s.action(for: []), .none)
     }
 
     func testOtherFlagsAreIgnored() {
-        XCTAssertEqual(settings().action(for: [.maskAlternate, .maskAlphaShift]), .move)
+        XCTAssertEqual(settings().action(for: [.maskControl, .maskAlternate, .maskAlphaShift]), .move)
     }
 
     func testFreeKeysAlreadyAmongTheResizeKeysAddNothing() {
         let s = settings(free: "command,shift")
-        XCTAssertEqual(s.action(for: [.maskAlternate, .maskCommand]), .resize)
-        XCTAssertEqual(s.action(for: [.maskAlternate, .maskCommand, .maskShift]), .freeResize)
-        XCTAssertEqual(settings(free: "command").action(for: [.maskAlternate, .maskCommand]), .resize)
+        XCTAssertEqual(s.action(for: [.maskControl, .maskAlternate, .maskCommand]), .resize)
+        XCTAssertEqual(s.action(for: [.maskControl, .maskAlternate, .maskCommand, .maskShift]), .freeResize)
+        XCTAssertEqual(settings(free: "command").action(for: [.maskControl, .maskAlternate, .maskCommand]), .resize)
     }
 
     func testNoFreeKeysOrNoResizeKeys() {
-        XCTAssertEqual(settings(free: "").action(for: [.maskAlternate, .maskCommand, .maskShift]), .none)
+        XCTAssertEqual(settings(free: "").action(for: [.maskControl, .maskAlternate, .maskCommand, .maskShift]), .none)
         XCTAssertEqual(settings(resize: "").action(for: [.maskShift]), .none)
     }
 }
