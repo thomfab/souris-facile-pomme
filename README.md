@@ -19,7 +19,9 @@ Hold a key combination and move the mouse:
 | `⌃ Control` + `⌥ Option` + `⌘ Command` | Resize the window under the pointer |
 
 Press and hold the click (a normal click on the trackpad) while holding the
-keys to snap to the grid, and release it to move or resize freely again.
+keys to snap to the grid. Releasing it drops the window where it snapped and
+ends the move or resize: release the keys and press them again to start
+another one.
 
 Release the keys to stop. The combination must match exactly, and both can be
 changed (or disabled) in the settings, which warn about combinations that

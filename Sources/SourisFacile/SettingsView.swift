@@ -178,7 +178,7 @@ struct SettingsView: View {
         } header: {
             Text("Grid")
         } footer: {
-            Text("While moving or resizing, press and hold the click (with the keys still held) to snap window edges to the grid of the display under the pointer. Each display's grid is set on its own page.")
+            Text("While moving or resizing, press and hold the click (with the keys still held) to snap window edges to the grid of the display under the pointer. Releasing the click drops the window there: release the keys before moving or resizing again. Each display's grid is set on its own page.")
         }
     }
 

@@ -27,6 +27,9 @@ final class WindowMover {
     private var resizeDirY: CGFloat = 1
     // Whether the button is held down with the keys, to snap to the grid.
     private var gridClick = false
+    // Releasing that button ends the operation: the keys then do nothing
+    // until they're released.
+    private var waitForKeysUp = false
     // The window server ID of the window, to dim the others below it.
     private var windowID: CGWindowID?
     private var dimmed = false
@@ -88,8 +91,11 @@ final class WindowMover {
         let action = settings.enabled
             ? settings.action(for: CGEventSource.flagsState(.combinedSessionState))
             : .none
+        if action == .none {
+            waitForKeysUp = false
+        }
         let newOp: Op
-        switch action {
+        switch waitForKeysUp ? .none : action {
         case .none: newOp = .none
         case .move: newOp = .move
         case .resize: newOp = .resize
@@ -271,13 +277,15 @@ final class WindowMover {
         if type == .leftMouseUp {
             guard gridClick else { return false }
             gridClick = false
+            // The window stays where it snapped.
+            waitForKeysUp = true
             scheduleUpdate()
             return true
         }
         if op == .none {
             settings = Settings.load()
         }
-        guard settings.enabled, settings.action(for: event.flags) != .none else { return false }
+        guard settings.enabled, !waitForKeysUp, settings.action(for: event.flags) != .none else { return false }
         gridClick = true
         scheduleUpdate()
         return true
@@ -289,7 +297,7 @@ final class WindowMover {
         if op == .none {
             settings = Settings.load()
         }
-        return settings.enabled && !settings.moveFlags.isEmpty
+        return settings.enabled && !waitForKeysUp && !settings.moveFlags.isEmpty
             && event.flags.intersection(Modifier.relevantFlags) == settings.moveFlags
     }
 
