@@ -115,7 +115,7 @@ let gridPresets = [
     GridPreset(name: "Laptop 15–16″", columns: 3, rows: 2),
     GridPreset(name: "24–27″", columns: 4, rows: 3),
     GridPreset(name: "Ultrawide", columns: 6, rows: 2),
-    GridPreset(name: "Ultrawide, fine", columns: 8, rows: 3),
+    GridPreset(name: "Ultrawide, fine", columns: 8, rows: 4),
 ]
 
 // The grid of one display, remembered by the display's UUID so it applies
