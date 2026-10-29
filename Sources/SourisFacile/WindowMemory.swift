@@ -38,6 +38,15 @@ struct WindowMemory: Equatable {
         frames[display]?[app]
     }
 
+    // How many apps have a remembered frame on the display.
+    func count(on display: String) -> Int {
+        frames[display]?.count ?? 0
+    }
+
+    mutating func forget(display: String) {
+        frames[display] = nil
+    }
+
     mutating func remember(_ frame: CGRect, area: CGRect, app: String, display: String) {
         frames[display, default: [:]][app] = RememberedFrame(frame: frame, area: area)
     }

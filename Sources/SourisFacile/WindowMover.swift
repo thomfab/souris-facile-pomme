@@ -139,7 +139,7 @@ final class WindowMover {
             window.raise()
         }
 
-        if settings.gridEnabled && settings.dimWindows, let windowID {
+        if settings.dimWindows && currentGrid(point) != nil, let windowID {
             overlays.showDimmer(below: windowID)
         }
     }
@@ -165,8 +165,9 @@ final class WindowMover {
         var x = (point.x - grabRatio.x * size.width).rounded()
         var y = (point.y - grabRatio.y * size.height).rounded()
 
-        x += snap([x, x + size.width], snapLinesX(top: y, height: size.height, point))
-        y += snap([y, y + size.height], snapLinesY(left: x, width: size.width, point))
+        let grid = currentGrid(point)
+        x += snap([x, x + size.width], snapLinesX(top: y, height: size.height, grid), grid)
+        y += snap([y, y + size.height], snapLinesY(left: x, width: size.width, grid), grid)
 
         let frame = CGRect(origin: CGPoint(x: x, y: y), size: size)
         guard frame != lastFrame else { return }
@@ -204,18 +205,19 @@ final class WindowMover {
         if resizeDirX > 0 { right += dx } else { left += dx }
         if resizeDirY > 0 { bottom += dy } else { top += dy }
 
-        let linesX = snapLinesX(top: top, height: bottom - top, point)
+        let grid = currentGrid(point)
+        let linesX = snapLinesX(top: top, height: bottom - top, grid)
         if resizeDirX > 0 {
-            right += snap([right], linesX)
+            right += snap([right], linesX, grid)
         } else {
-            left += snap([left], linesX)
+            left += snap([left], linesX, grid)
         }
 
-        let linesY = snapLinesY(left: left, width: right - left, point)
+        let linesY = snapLinesY(left: left, width: right - left, grid)
         if resizeDirY > 0 {
-            bottom += snap([bottom], linesY)
+            bottom += snap([bottom], linesY, grid)
         } else {
-            top += snap([top], linesY)
+            top += snap([top], linesY, grid)
         }
 
         if right - left < minWidth {
@@ -340,9 +342,9 @@ final class WindowMover {
         // relative place and size as here.
         var newFrame = remembered(app, on: screens[to])?.restored(in: area, keepSize: !resizable)
             ?? transfer(frame, from: source.globalVisibleFrame, to: area, keepSize: !resizable)
-        if settings.gridEnabled && resizable {
-            let size = settings.gridSize(forDisplay: screens[to].displayUUID)
-            newFrame = fitToGrid(newFrame, area: area, columns: size.columns, rows: size.rows)
+        let grid = settings.grid(forDisplay: screens[to].displayUUID)
+        if grid.enabled && resizable {
+            newFrame = fitToGrid(newFrame, area: area, columns: grid.columns, rows: grid.rows)
         }
 
         endOperation()
@@ -418,17 +420,16 @@ final class WindowMover {
         return target?.id
     }
 
-    private func snap(_ edges: [CGFloat], _ lines: [CGFloat]) -> CGFloat {
+    private func snap(_ edges: [CGFloat], _ lines: [CGFloat], _ grid: Grid?) -> CGFloat {
         // The grid always snaps; edge snapping only within the threshold.
-        let threshold = settings.gridEnabled ? .infinity : settings.snapThreshold
+        let threshold = grid != nil ? .infinity : settings.snapThreshold
         guard threshold > 0 else { return 0 }
         return snapDelta(edges, lines, threshold: threshold)
     }
 
     // Vertical lines a window spanning [top, top + height] can snap to.
-    private func snapLinesX(top: CGFloat, height: CGFloat, _ point: CGPoint) -> [CGFloat] {
-        if settings.gridEnabled {
-            let grid = currentGrid(point)
+    private func snapLinesX(top: CGFloat, height: CGFloat, _ grid: Grid?) -> [CGFloat] {
+        if let grid {
             return divide(grid.area.minX, grid.area.width, grid.columns)
         }
 
@@ -443,9 +444,8 @@ final class WindowMover {
     }
 
     // Horizontal lines a window spanning [left, left + width] can snap to.
-    private func snapLinesY(left: CGFloat, width: CGFloat, _ point: CGPoint) -> [CGFloat] {
-        if settings.gridEnabled {
-            let grid = currentGrid(point)
+    private func snapLinesY(left: CGFloat, width: CGFloat, _ grid: Grid?) -> [CGFloat] {
+        if let grid {
             return divide(grid.area.minY, grid.area.height, grid.rows)
         }
 
@@ -459,14 +459,21 @@ final class WindowMover {
         return lines
     }
 
-    // The grid follows the screen under the pointer, with that screen's size.
-    private func currentGrid(_ point: CGPoint) -> (area: CGRect, columns: Int, rows: Int) {
+    private typealias Grid = (area: CGRect, columns: Int, rows: Int)
+
+    // The grid of the screen under the pointer, or nil if that screen has
+    // none (edge snapping then applies).
+    private func currentGrid(_ point: CGPoint) -> Grid? {
         let screen = NSScreen.containing(point)
-        let area = screen?.globalVisibleFrame ?? workAreas.first ?? .zero
-        let size = settings.gridSize(forDisplay: screen?.displayUUID)
-        if settings.showGrid {
-            overlays.showGrid(over: area, columns: size.columns, rows: size.rows)
+        let grid = settings.grid(forDisplay: screen?.displayUUID)
+        guard grid.enabled else {
+            overlays.hideGrid()
+            return nil
         }
-        return (area, size.columns, size.rows)
+        let area = screen?.globalVisibleFrame ?? workAreas.first ?? .zero
+        if settings.showGrid {
+            overlays.showGrid(over: area, columns: grid.columns, rows: grid.rows)
+        }
+        return (area, grid.columns, grid.rows)
     }
 }

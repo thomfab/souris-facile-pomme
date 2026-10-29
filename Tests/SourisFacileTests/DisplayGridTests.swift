@@ -13,8 +13,8 @@ final class DisplayGridTests: XCTestCase {
     }
 
     private func size(_ settings: Settings, _ uuid: String?) -> [Int] {
-        let size = settings.gridSize(forDisplay: uuid)
-        return [size.columns, size.rows]
+        let grid = settings.grid(forDisplay: uuid)
+        return [grid.columns, grid.rows]
     }
 
     func testEncodingRoundTrips() {
@@ -36,6 +36,23 @@ final class DisplayGridTests: XCTestCase {
         let s = settings([office: DisplayGrid(name: "DELL U3421WE", columns: 6, rows: 2)])
         XCTAssertEqual(size(s, "another display"), [4, 3])
         XCTAssertEqual(size(s, nil), [4, 3])
+    }
+
+    func testEachDisplayTurnsItsGridOnOrOff() {
+        let s = settings([
+            office: DisplayGrid(name: "DELL U3421WE", columns: 6, rows: 2, enabled: true),
+            "laptop": DisplayGrid(name: "Built-in Retina Display", columns: 2, rows: 2, enabled: false),
+        ])
+        XCTAssertTrue(s.grid(forDisplay: office).enabled)
+        XCTAssertFalse(s.grid(forDisplay: "laptop").enabled)
+    }
+
+    func testGridsFromVersion02FollowTheOldGlobalSwitch() {
+        let saved = Data(#"{"\#(office)":{"name":"DELL U3421WE","columns":6,"rows":2}}"#.utf8)
+        let grids = DisplayGrid.decode(saved)
+        XCTAssertEqual(grids[office]?.columns, 6)
+        XCTAssertNil(grids[office]?.enabled)
+        XCTAssertTrue(settings(grids).grid(forDisplay: office).enabled)
     }
 
     func testStoredSizesAreClamped() {

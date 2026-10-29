@@ -33,25 +33,26 @@ back.
 
 ### Snapping
 
-By default, window edges snap to screen edges (minus the menu bar and the
-Dock) and to the edges of neighbouring windows when they come within 16
-points. The distance is configurable, and `0` turns snapping off.
+On displays without a grid, window edges snap to screen edges (minus the
+menu bar and the Dock) and to the edges of neighbouring windows when they
+come within 16 points. The distance is configurable, and `0` turns snapping
+off.
 
 ### Grid
 
-Turn on the grid to divide each screen into columns and rows: moved and
-resized edges then always land on a grid line. The grid follows the screen
-under the pointer, and its lines can be shown while you move or resize, with
-the other windows dimmed. Windows stacked above the one you are moving stay
-bright, so turn on "Raise window" if you want everything else dimmed.
+Each display can be divided into a grid of columns and rows: moved and
+resized edges then always land on a grid line. The grid is set per display,
+on and off and in size, e.g. off on the laptop screen and 6 × 2 on an
+ultrawide monitor. It follows the display under the pointer, and its lines
+can be shown while you move or resize, with the other windows dimmed. Windows
+stacked above the one you are moving stay bright, so turn on "Raise window"
+if you want everything else dimmed.
 
-Each display can have its own grid size, e.g. 2 × 2 on the laptop screen and
-6 × 2 on an ultrawide monitor. Displays without one use the default grid.
-Sizes are remembered per physical display, so plugging the laptop into your
+Grids are remembered per physical display, so plugging the laptop into your
 monitors at home or at the office brings their grids back. In the settings,
 **Preview Grid** briefly draws a display's grid on it to tell displays apart,
-and displays that aren't plugged in are listed under **Unplugged Displays**, where
-they can be forgotten.
+and displays that aren't plugged in are listed under **Unplugged Displays**,
+where they can be forgotten.
 
 ### Sending a window to another display
 
@@ -98,24 +99,28 @@ bar.
 
 ## Settings
 
-Click the mouse icon in the menu bar, then **Settings…**.
+Click the mouse icon in the menu bar, then **Settings…**. The sidebar has a
+page per topic, then one per connected display, and **Unplugged Displays**
+when some are remembered.
 
-| Setting                    | Default                 |
-| -------------------------- | ----------------------- |
-| Move keys                  | `⌃` + `⌥`               |
-| Resize keys                | `⌃` + `⌥` + `⌘`         |
-| Raise window               | Off                     |
-| Resize from nearest corner | On                      |
-| Launch at login            | Off                     |
-| Snap distance              | 16 pt                   |
-| Snap to other windows      | On                      |
-| Snap to grid               | Off (4 × 3)             |
-| Grid size per display     | Default grid            |
-| Show grid                  | On                      |
-| Dim other windows          | On                      |
-| Send with swipe or scroll  | On                      |
-| Send with arrow keys       | On                      |
-| Remember window sizes      | On                      |
+| Page            | Setting                         | Default         |
+| --------------- | ------------------------------- | --------------- |
+| General         | Enabled                         | On              |
+|                 | Launch at login                 | Off             |
+|                 | Raise window                    | Off             |
+| Move            | Keys                            | `⌃` + `⌥`       |
+| Resize          | Keys                            | `⌃` + `⌥` + `⌘` |
+|                 | Resize from nearest corner      | On              |
+| Snapping        | Snap distance                   | 16 pt           |
+|                 | Snap to other windows           | On              |
+|                 | Show grid                       | On              |
+|                 | Dim other windows               | On              |
+| Send to Display | Swipe or scroll                 | On              |
+|                 | Arrow keys                      | On              |
+|                 | Remember window sizes           | On              |
+| Each display    | Snap to grid                    | Off             |
+|                 | Grid size                       | 4 × 3           |
+|                 | Remembered window sizes, forget |                 |
 
 ## Building
 

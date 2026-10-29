@@ -3,13 +3,21 @@ import Combine
 import ServiceManagement
 import SwiftUI
 
+private enum Page: Hashable {
+    case general, move, resize, snapping, send
+    case display(String)
+    case unplugged
+}
+
 struct SettingsView: View {
+    @AppStorage(Key.enabled) private var enabled = true
     @AppStorage(Key.moveModifiers) private var moveModifiers = Defaults.moveModifiers
     @AppStorage(Key.resizeModifiers) private var resizeModifiers = Defaults.resizeModifiers
     @AppStorage(Key.raiseWindow) private var raiseWindow = false
     @AppStorage(Key.resizeNearestCorner) private var resizeNearestCorner = true
     @AppStorage(Key.snapThreshold) private var snapThreshold = Defaults.snapThreshold
     @AppStorage(Key.snapToWindows) private var snapToWindows = true
+    // From before grids were per display: what a display never set up starts with.
     @AppStorage(Key.gridEnabled) private var gridEnabled = false
     @AppStorage(Key.gridColumns) private var gridColumns = Defaults.gridColumns
     @AppStorage(Key.gridRows) private var gridRows = Defaults.gridRows
@@ -24,156 +32,53 @@ struct SettingsView: View {
     @State private var accessGranted = isAccessibilityTrusted()
     @State private var displays = ConnectedDisplay.all()
     @State private var preview = GridPreview()
+    @State private var page: Page? = .general
     private let accessCheck = Timer.publish(every: 2, on: .main, in: .common).autoconnect()
 
     var body: some View {
-        Form {
-            if !accessGranted {
+        NavigationSplitView {
+            List(selection: $page) {
                 Section {
-                    LabeledContent {
-                        Button("Open System Settings…", action: openAccessibilitySettings)
-                    } label: {
-                        Label("Accessibility access needed", systemImage: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.orange)
-                    }
-                } footer: {
-                    Text("Turn on Souris facile pomme in Privacy & Security → Accessibility so it can see the keys you hold and move other apps' windows.")
+                    Label("General", systemImage: "gearshape").tag(Page.general)
+                    Label("Move", systemImage: "arrow.up.and.down.and.arrow.left.and.right").tag(Page.move)
+                    Label("Resize", systemImage: "arrow.up.left.and.arrow.down.right").tag(Page.resize)
+                    Label("Snapping", systemImage: "square.grid.3x3").tag(Page.snapping)
+                    Label("Send to Display", systemImage: "rectangle.on.rectangle").tag(Page.send)
                 }
-            }
-
-            Section {
-                ModifierToggles(value: $moveModifiers)
-            } header: {
-                Text("Move")
-            } footer: {
-                Text("Hold these keys and move the mouse to move the window under the pointer. Turn all off to disable.")
-            }
-
-            Section {
-                ModifierToggles(value: $resizeModifiers)
-            } header: {
-                Text("Resize")
-            } footer: {
-                Text("Hold these keys and move the mouse to resize the window under the pointer. Turn all off to disable.")
-            }
-
-            let warnings = Modifier.warnings(move: moveModifiers, resize: resizeModifiers)
-            if !warnings.isEmpty {
-                Section {
-                    ForEach(warnings, id: \.self) { warning in
-                        Label(warning, systemImage: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.orange)
+                Section("Displays") {
+                    ForEach(displays) { display in
+                        Label(display.name, systemImage: display.isBuiltIn ? "laptopcomputer" : "display")
+                            .tag(Page.display(display.uuid))
+                    }
+                    if !unplugged.isEmpty {
+                        Label("Unplugged Displays", systemImage: "powerplug").tag(Page.unplugged)
                     }
                 }
             }
-
-            Section {
-                Toggle(isOn: $sendWithScroll) {
-                    Text("Swipe or scroll")
-                    Text("Swipe two fingers on a trackpad or Magic Mouse toward a display. A mouse wheel goes to the next or previous display.")
+            .navigationSplitViewColumnWidth(210)
+        } detail: {
+            Form {
+                if !accessGranted {
+                    accessSection
                 }
-                Toggle(isOn: $sendWithArrows) {
-                    Text("Arrow keys")
-                    Text("Press an arrow key to go to the display in that direction.")
-                }
-                Toggle(isOn: $rememberFrames) {
-                    Text("Remember window sizes per display")
-                    Text("A window sent or dragged to a display gets the size and place its app's windows last had there.")
-                }
-                Button("Forget Remembered Sizes") {
-                    windowFramesData = Data()
-                }
-                .disabled(WindowMemory(data: windowFramesData).isEmpty)
-            } header: {
-                Text("Send to Another Display")
-            } footer: {
-                Text("Hold the move keys over a window and swipe, scroll or press an arrow key. The window keeps its relative place and size (or takes its remembered one), fits the grid of the display it lands on, and the pointer goes with it.")
-            }
-            .disabled(Modifier.parse(moveModifiers).isEmpty)
-
-            Section("Behavior") {
-                Toggle("Raise window", isOn: $raiseWindow)
-                Toggle("Resize from nearest corner", isOn: $resizeNearestCorner)
-                Toggle("Launch at login", isOn: $launchAtLogin)
-                    .onChange(of: launchAtLogin) { enabled in
-                        do {
-                            if enabled {
-                                try SMAppService.mainApp.register()
-                            } else {
-                                try SMAppService.mainApp.unregister()
-                            }
-                        } catch {
-                            launchAtLogin = SMAppService.mainApp.status == .enabled
-                        }
+                switch page ?? .general {
+                case .general: generalPage
+                case .move: movePage
+                case .resize: resizePage
+                case .snapping: snappingPage
+                case .send: sendPage
+                case .display(let uuid):
+                    if let display = displays.first(where: { $0.uuid == uuid }) {
+                        displayPage(display)
+                    } else {
+                        Text("This display isn't plugged in anymore.")
                     }
-            }
-
-            Section {
-                Stepper(value: $snapThreshold, in: 0...200) {
-                    Text("Snap distance: \(snapThreshold) pt")
-                }
-                Toggle("Snap to other windows", isOn: $snapToWindows)
-            } header: {
-                Text("Edge Snapping")
-            } footer: {
-                Text("Window edges snap to screen edges when they come close. 0 turns edge snapping off. Not used while the grid is on.")
-            }
-            .disabled(gridEnabled)
-
-            Section {
-                Toggle("Snap to grid", isOn: $gridEnabled)
-                Group {
-                    GridSizeFields(title: "Default grid size", columns: $gridColumns, rows: $gridRows)
-                    Toggle("Show grid", isOn: $showGrid)
-                    Toggle("Dim other windows", isOn: $dimWindows)
-                }
-                .disabled(!gridEnabled)
-            } header: {
-                Text("Grid")
-            } footer: {
-                Text("Divide each screen into a grid. Moved and resized edges always snap to its lines. Displays without their own grid size use the default one.")
-            }
-
-            ForEach(displays) { display in
-                Section {
-                    Toggle(isOn: hasOwnGrid(display)) {
-                        Text("Own grid size")
-                        Text("Otherwise uses the default, \(gridColumns) × \(gridRows).")
-                    }
-                    if displayGrids[display.uuid] != nil {
-                        GridSizeFields(title: "Grid size",
-                                       columns: displayGridSize(display, \.columns),
-                                       rows: displayGridSize(display, \.rows))
-                    }
-                    Button("Preview Grid") { previewGrid(on: display) }
-                } header: {
-                    Text(display.name)
-                }
-                .disabled(!gridEnabled)
-            }
-
-            let unplugged = displayGrids
-                .filter { entry in !displays.contains { $0.uuid == entry.key } }
-                .sorted { $0.value.name < $1.value.name }
-            if !unplugged.isEmpty {
-                Section {
-                    ForEach(unplugged, id: \.key) { entry in
-                        LabeledContent {
-                            Button("Forget") { setDisplayGrid(nil, for: entry.key) }
-                        } label: {
-                            Text(entry.value.name)
-                            Text("\(entry.value.columns) × \(entry.value.rows)")
-                        }
-                    }
-                } header: {
-                    Text("Unplugged Displays")
-                } footer: {
-                    Text("Remembered grid sizes of displays that aren't plugged in. They apply again as soon as the display is.")
+                case .unplugged: unpluggedPage
                 }
             }
+            .formStyle(.grouped)
         }
-        .formStyle(.grouped)
-        .frame(width: 480, height: 720)
+        .frame(width: 720, height: 520)
         .onReceive(accessCheck) { _ in
             accessGranted = isAccessibilityTrusted()
         }
@@ -182,8 +87,217 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: Pages
+
+    private var accessSection: some View {
+        Section {
+            LabeledContent {
+                Button("Open System Settings…", action: openAccessibilitySettings)
+            } label: {
+                Label("Accessibility access needed", systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+            }
+        } footer: {
+            Text("Turn on Souris facile pomme in Privacy & Security → Accessibility so it can see the keys you hold and move other apps' windows.")
+        }
+    }
+
+    @ViewBuilder private var generalPage: some View {
+        Section {
+            Toggle("Enabled", isOn: $enabled)
+            Toggle("Launch at login", isOn: $launchAtLogin)
+                .onChange(of: launchAtLogin) { enabled in
+                    do {
+                        if enabled {
+                            try SMAppService.mainApp.register()
+                        } else {
+                            try SMAppService.mainApp.unregister()
+                        }
+                    } catch {
+                        launchAtLogin = SMAppService.mainApp.status == .enabled
+                    }
+                }
+            Toggle(isOn: $raiseWindow) {
+                Text("Raise window")
+                Text("Bring the window to the front when you start moving or resizing it.")
+            }
+        }
+    }
+
+    @ViewBuilder private var movePage: some View {
+        Section {
+            ModifierToggles(value: $moveModifiers)
+        } header: {
+            Text("Keys")
+        } footer: {
+            Text("Hold these keys and move the mouse to move the window under the pointer. Turn all off to disable.")
+        }
+        warningsSection
+    }
+
+    @ViewBuilder private var resizePage: some View {
+        Section {
+            ModifierToggles(value: $resizeModifiers)
+        } header: {
+            Text("Keys")
+        } footer: {
+            Text("Hold these keys and move the mouse to resize the window under the pointer. Turn all off to disable.")
+        }
+        warningsSection
+        Section {
+            Toggle(isOn: $resizeNearestCorner) {
+                Text("Resize from nearest corner")
+                Text("Otherwise always from the bottom-right corner.")
+            }
+        }
+    }
+
+    @ViewBuilder private var warningsSection: some View {
+        let warnings = Modifier.warnings(move: moveModifiers, resize: resizeModifiers)
+        if !warnings.isEmpty {
+            Section {
+                ForEach(warnings, id: \.self) { warning in
+                    Label(warning, systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder private var snappingPage: some View {
+        Section {
+            Stepper(value: $snapThreshold, in: 0...200) {
+                Text("Snap distance: \(snapThreshold) pt")
+            }
+            Toggle("Snap to other windows", isOn: $snapToWindows)
+        } header: {
+            Text("Edge Snapping")
+        } footer: {
+            Text("On displays without a grid, window edges snap to screen edges when they come close. 0 turns edge snapping off.")
+        }
+
+        Section {
+            Toggle("Show grid", isOn: $showGrid)
+            Toggle("Dim other windows", isOn: $dimWindows)
+        } header: {
+            Text("Grid")
+        } footer: {
+            Text("While moving or resizing on a display with a grid. Each display's grid is set on its own page.")
+        }
+    }
+
+    @ViewBuilder private var sendPage: some View {
+        Section {
+            Toggle(isOn: $sendWithScroll) {
+                Text("Swipe or scroll")
+                Text("Swipe two fingers on a trackpad or Magic Mouse toward a display. A mouse wheel goes to the next or previous display.")
+            }
+            Toggle(isOn: $sendWithArrows) {
+                Text("Arrow keys")
+                Text("Press an arrow key to go to the display in that direction.")
+            }
+        } footer: {
+            Text("Hold the move keys over a window and swipe, scroll or press an arrow key. The pointer goes with the window.")
+        }
+        .disabled(Modifier.parse(moveModifiers).isEmpty)
+
+        Section {
+            Toggle(isOn: $rememberFrames) {
+                Text("Remember window sizes per display")
+                Text("A window sent or dragged to a display gets the size and place its app's windows last had there. Otherwise it keeps its relative place and size.")
+            }
+            Button("Forget All Remembered Sizes") {
+                windowFramesData = Data()
+            }
+            .disabled(windowMemory.isEmpty)
+        } header: {
+            Text("Window Sizes")
+        }
+    }
+
+    @ViewBuilder private func displayPage(_ display: ConnectedDisplay) -> some View {
+        Section {
+            Toggle(isOn: gridEnabledBinding(display)) {
+                Text("Snap to grid")
+                Text("Moved and resized window edges always land on the grid lines.")
+            }
+            GridSizeFields(title: "Grid size",
+                           columns: gridSizeBinding(display, \.columns),
+                           rows: gridSizeBinding(display, \.rows))
+                .disabled(!grid(of: display).enabled!)
+            Button("Preview Grid") { previewGrid(on: display) }
+        } header: {
+            Text("Grid")
+        } footer: {
+            Text("Remembered for this display, and used again whenever it's plugged in.")
+        }
+
+        Section {
+            let count = windowMemory.count(on: display.uuid)
+            LabeledContent {
+                Button("Forget") {
+                    var memory = windowMemory
+                    memory.forget(display: display.uuid)
+                    windowFramesData = memory.data
+                }
+                .disabled(count == 0)
+            } label: {
+                Text(count == 1 ? "1 app" : "\(count) apps")
+            }
+        } header: {
+            Text("Remembered Window Sizes")
+        } footer: {
+            Text("Where apps' windows last were on this display, used when a window is sent or dragged here.")
+        }
+    }
+
+    @ViewBuilder private var unpluggedPage: some View {
+        Section {
+            ForEach(unplugged, id: \.key) { entry in
+                LabeledContent {
+                    Button("Forget") {
+                        setDisplayGrid(nil, for: entry.key)
+                        var memory = windowMemory
+                        memory.forget(display: entry.key)
+                        windowFramesData = memory.data
+                    }
+                } label: {
+                    Text(entry.value.name)
+                    Text(gridSummary(entry.value))
+                }
+            }
+        } footer: {
+            Text("Settings of displays that aren't plugged in. They apply again as soon as the display is. Forgetting a display also forgets its remembered window sizes.")
+        }
+    }
+
+    // MARK: Display settings
+
     private var displayGrids: [String: DisplayGrid] {
         DisplayGrid.decode(displayGridsData)
+    }
+
+    private var windowMemory: WindowMemory {
+        WindowMemory(data: windowFramesData)
+    }
+
+    private var unplugged: [(key: String, value: DisplayGrid)] {
+        displayGrids
+            .filter { entry in !displays.contains { $0.uuid == entry.key } }
+            .sorted { $0.value.name < $1.value.name }
+    }
+
+    private func gridSummary(_ grid: DisplayGrid) -> String {
+        let size = "\(grid.columns) × \(grid.rows)"
+        return grid.enabled ?? gridEnabled ? "Grid \(size)" : "Grid off (\(size))"
+    }
+
+    // The display's grid, or what it starts with if it was never set up.
+    private func grid(of display: ConnectedDisplay) -> DisplayGrid {
+        var grid = displayGrids[display.uuid]
+            ?? DisplayGrid(name: display.name, columns: gridColumns, rows: gridRows)
+        grid.enabled = grid.enabled ?? gridEnabled
+        return grid
     }
 
     private func setDisplayGrid(_ grid: DisplayGrid?, for uuid: String) {
@@ -192,25 +306,31 @@ struct SettingsView: View {
         displayGridsData = DisplayGrid.encode(grids)
     }
 
-    private func hasOwnGrid(_ display: ConnectedDisplay) -> Binding<Bool> {
+    private func updateGrid(_ display: ConnectedDisplay, _ change: (inout DisplayGrid) -> Void) {
+        var grid = grid(of: display)
+        grid.name = display.name
+        change(&grid)
+        setDisplayGrid(grid, for: display.uuid)
+    }
+
+    private func gridEnabledBinding(_ display: ConnectedDisplay) -> Binding<Bool> {
         Binding(
-            get: { displayGrids[display.uuid] != nil },
+            get: { grid(of: display).enabled! },
             set: { isOn in
-                let grid = isOn ? DisplayGrid(name: display.name, columns: gridColumns, rows: gridRows) : nil
-                setDisplayGrid(grid, for: display.uuid)
+                updateGrid(display) { $0.enabled = isOn }
+                if isOn {
+                    previewGrid(on: display)
+                }
             }
         )
     }
 
-    private func displayGridSize(_ display: ConnectedDisplay,
+    private func gridSizeBinding(_ display: ConnectedDisplay,
                                  _ keyPath: WritableKeyPath<DisplayGrid, Int>) -> Binding<Int> {
         Binding(
-            get: { displayGrids[display.uuid]?[keyPath: keyPath] ?? 1 },
+            get: { grid(of: display)[keyPath: keyPath] },
             set: { value in
-                guard var grid = displayGrids[display.uuid] else { return }
-                grid[keyPath: keyPath] = value
-                grid.name = display.name
-                setDisplayGrid(grid, for: display.uuid)
+                updateGrid(display) { $0[keyPath: keyPath] = value }
                 previewGrid(on: display)
             }
         )
@@ -219,20 +339,22 @@ struct SettingsView: View {
     // Briefly shows the display's grid on it, to tell displays apart.
     private func previewGrid(on display: ConnectedDisplay) {
         guard let screen = NSScreen.screens.first(where: { $0.displayUUID == display.uuid }) else { return }
-        let grid = displayGrids[display.uuid]
-        preview.show(over: screen.globalVisibleFrame,
-                     columns: grid?.columns ?? gridColumns, rows: grid?.rows ?? gridRows)
+        let grid = grid(of: display)
+        preview.show(over: screen.globalVisibleFrame, columns: grid.columns, rows: grid.rows)
     }
 }
 
 private struct ConnectedDisplay: Identifiable {
     let uuid: String
     let name: String
+    let isBuiltIn: Bool
     var id: String { uuid }
 
     static func all() -> [ConnectedDisplay] {
         NSScreen.screens.compactMap { screen in
-            screen.displayUUID.map { ConnectedDisplay(uuid: $0, name: screen.localizedName) }
+            screen.displayUUID.map {
+                ConnectedDisplay(uuid: $0, name: screen.localizedName, isBuiltIn: screen.isBuiltIn)
+            }
         }
     }
 }

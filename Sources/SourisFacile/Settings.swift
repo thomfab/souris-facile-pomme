@@ -118,13 +118,16 @@ let gridPresets = [
     GridPreset(name: "Ultrawide, fine", columns: 8, rows: 3),
 ]
 
-// A grid size for one display, remembered by the display's UUID so it
-// applies again whenever that display is plugged back in.
+// The grid of one display, remembered by the display's UUID so it applies
+// again whenever that display is plugged back in.
 struct DisplayGrid: Codable, Equatable {
     // The display's name, to list it in the settings while it's unplugged.
     var name: String
     var columns: Int
     var rows: Int
+    // Whether windows snap to it. Missing in grids saved by version 0.2,
+    // when the grid was turned on for all displays at once.
+    var enabled: Bool? = nil
 
     // All of them are stored as JSON, keyed by display UUID.
     static func decode(_ data: Data?) -> [String: DisplayGrid] {
@@ -184,9 +187,10 @@ struct Settings {
         )
     }
 
-    // The display's own grid size if it has one, else the default.
-    func gridSize(forDisplay uuid: String?) -> (columns: Int, rows: Int) {
-        guard let uuid, let grid = displayGrids[uuid] else { return (gridColumns, gridRows) }
-        return (clampGrid(grid.columns), clampGrid(grid.rows))
+    // The display's grid. A display never set up uses the settings from
+    // before grids were per display (the grid-* keys), off by default.
+    func grid(forDisplay uuid: String?) -> (enabled: Bool, columns: Int, rows: Int) {
+        guard let uuid, let grid = displayGrids[uuid] else { return (gridEnabled, gridColumns, gridRows) }
+        return (grid.enabled ?? gridEnabled, clampGrid(grid.columns), clampGrid(grid.rows))
     }
 }

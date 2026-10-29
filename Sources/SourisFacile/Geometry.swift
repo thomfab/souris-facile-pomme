@@ -19,10 +19,19 @@ extension NSScreen {
     // Identifies the physical display, and stays the same when it's
     // unplugged and plugged back in, or after a restart.
     var displayUUID: String? {
-        guard let number = deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber,
-              let uuid = CGDisplayCreateUUIDFromDisplayID(number.uint32Value)?.takeRetainedValue()
+        guard let displayID,
+              let uuid = CGDisplayCreateUUIDFromDisplayID(displayID)?.takeRetainedValue()
         else { return nil }
         return CFUUIDCreateString(nil, uuid) as String
+    }
+
+    // A laptop's own screen.
+    var isBuiltIn: Bool {
+        displayID.map { CGDisplayIsBuiltin($0) != 0 } ?? false
+    }
+
+    private var displayID: CGDirectDisplayID? {
+        (deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value
     }
 
     static func containing(_ point: CGPoint) -> NSScreen? {
