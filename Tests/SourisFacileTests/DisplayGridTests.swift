@@ -8,7 +8,8 @@ final class DisplayGridTests: XCTestCase {
         Settings(enabled: true, moveFlags: [], resizeFlags: [], raiseWindow: false,
                  resizeNearestCorner: true, snapThreshold: 16, snapToWindows: true,
                  gridEnabled: true, gridColumns: 4, gridRows: 3, displayGrids: grids,
-                 showGrid: true, dimWindows: true, sendWithScroll: true, sendWithArrows: true)
+                 showGrid: true, dimWindows: true, sendWithScroll: true, sendWithArrows: true,
+                 rememberFrames: true)
     }
 
     private func size(_ settings: Settings, _ uuid: String?) -> [Int] {

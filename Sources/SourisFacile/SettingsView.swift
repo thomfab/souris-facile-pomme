@@ -18,6 +18,8 @@ struct SettingsView: View {
     @AppStorage(Key.dimWindows) private var dimWindows = true
     @AppStorage(Key.sendWithScroll) private var sendWithScroll = true
     @AppStorage(Key.sendWithArrows) private var sendWithArrows = true
+    @AppStorage(Key.rememberFrames) private var rememberFrames = true
+    @AppStorage(Key.windowFrames) private var windowFramesData = Data()
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var accessGranted = isAccessibilityTrusted()
     @State private var displays = ConnectedDisplay.all()
@@ -74,10 +76,18 @@ struct SettingsView: View {
                     Text("Arrow keys")
                     Text("Press an arrow key to go to the display in that direction.")
                 }
+                Toggle(isOn: $rememberFrames) {
+                    Text("Remember window sizes per display")
+                    Text("A window sent or dragged to a display gets the size and place its app's windows last had there.")
+                }
+                Button("Forget Remembered Sizes") {
+                    windowFramesData = Data()
+                }
+                .disabled(WindowMemory(data: windowFramesData).isEmpty)
             } header: {
                 Text("Send to Another Display")
             } footer: {
-                Text("Hold the move keys over a window and swipe, scroll or press an arrow key. The window keeps its relative place and size, fits the grid of the display it lands on, and the pointer goes with it.")
+                Text("Hold the move keys over a window and swipe, scroll or press an arrow key. The window keeps its relative place and size (or takes its remembered one), fits the grid of the display it lands on, and the pointer goes with it.")
             }
             .disabled(Modifier.parse(moveModifiers).isEmpty)
 

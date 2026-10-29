@@ -69,6 +69,8 @@ enum Key {
     static let dimWindows = "dim-windows"
     static let sendWithScroll = "send-with-scroll"
     static let sendWithArrows = "send-with-arrows"
+    static let rememberFrames = "remember-window-frames"
+    static let windowFrames = "window-frames"
 }
 
 enum Defaults {
@@ -95,6 +97,7 @@ enum Defaults {
             Key.dimWindows: true,
             Key.sendWithScroll: true,
             Key.sendWithArrows: true,
+            Key.rememberFrames: true,
         ])
     }
 }
@@ -157,6 +160,7 @@ struct Settings {
     var dimWindows: Bool
     var sendWithScroll: Bool
     var sendWithArrows: Bool
+    var rememberFrames: Bool
 
     static func load() -> Settings {
         let d = UserDefaults.standard
@@ -175,7 +179,8 @@ struct Settings {
             showGrid: d.bool(forKey: Key.showGrid),
             dimWindows: d.bool(forKey: Key.dimWindows),
             sendWithScroll: d.bool(forKey: Key.sendWithScroll),
-            sendWithArrows: d.bool(forKey: Key.sendWithArrows)
+            sendWithArrows: d.bool(forKey: Key.sendWithArrows),
+            rememberFrames: d.bool(forKey: Key.rememberFrames)
         )
     }
 

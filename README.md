@@ -70,6 +70,17 @@ that display when the grid is on, and the pointer goes with it, so you can
 keep moving it. Swipes, scrolls and arrow keys used this way don't reach the
 app under the pointer. Both can be turned off in the settings.
 
+### Window sizes per display
+
+Each display remembers where each app's windows last were on it. A window
+sent to a display, or dragged onto it, gets that size and place back: for
+example Safari half the laptop screen and a third of the office monitor.
+Sizes are remembered when you move or resize a window with Souris facile
+pomme, and when a window leaves a display. macOS gives windows no ID that
+survives an app restart, so this is per app: an app's windows share the same
+remembered size on a display. It can be turned off, and the remembered sizes
+forgotten, in the settings.
+
 If Accessibility Zoom is set to zoom with a scroll gesture and the Control
 key, it may react to the same swipes: pick another modifier for it in System
 Settings → Accessibility → Zoom.
@@ -104,6 +115,7 @@ Click the mouse icon in the menu bar, then **Settings…**.
 | Dim other windows          | On                      |
 | Send with swipe or scroll  | On                      |
 | Send with arrow keys       | On                      |
+| Remember window sizes      | On                      |
 
 ## Building
 

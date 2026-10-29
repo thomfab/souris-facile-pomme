@@ -26,6 +26,14 @@ final class WindowMover {
     private var resizeDirX: CGFloat = 1
     private var resizeDirY: CGFloat = 1
     private var lastFrame = CGRect.null
+    // The window's app, to remember where its windows were on each display.
+    private var app: String?
+    private var resizable = false
+    // The frame when the operation began, until the window is dragged to
+    // another display, when it's remembered as its frame on the first one.
+    private var beginFrame: CGRect?
+    // The display under the pointer while moving.
+    private var moveDisplay: String?
     private var workAreas: [CGRect] = []
     private var otherRects: [CGRect] = []
     private let overlays = Overlays()
@@ -110,6 +118,10 @@ final class WindowMover {
         start = point
         startRect = rect
         lastFrame = rect
+        app = bundleID(of: window)
+        resizable = window.canResize
+        beginFrame = rect
+        moveDisplay = NSScreen.containing(point)?.displayUUID
         grabRatio = CGPoint(x: (point.x - rect.minX) / rect.width,
                             y: (point.y - rect.minY) / rect.height)
 
@@ -133,8 +145,14 @@ final class WindowMover {
     }
 
     private func endOperation() {
+        if op != .none, let window, lastFrame != beginFrame, let frame = window.frame {
+            remember(frame, of: app)
+        }
         op = .none
         window = nil
+        app = nil
+        beginFrame = nil
+        moveDisplay = nil
         workAreas = []
         otherRects = []
         overlays.hideAll()
@@ -142,6 +160,7 @@ final class WindowMover {
 
     private func updateMove(_ point: CGPoint) {
         guard let window else { return }
+        enterDisplay(at: point)
         let size = startRect.size
         var x = (point.x - grabRatio.x * size.width).rounded()
         var y = (point.y - grabRatio.y * size.height).rounded()
@@ -151,9 +170,26 @@ final class WindowMover {
 
         let frame = CGRect(origin: CGPoint(x: x, y: y), size: size)
         guard frame != lastFrame else { return }
+        let resized = frame.size != lastFrame.size
         lastFrame = frame
-        if !window.setOrigin(frame.origin) {
+        if !(resized ? window.setFrame(frame) : window.setOrigin(frame.origin)) {
             endOperation()
+        }
+    }
+
+    // When a drag crosses onto another display, takes the size its app's
+    // windows last had there, keeping the pointer at the same spot in it.
+    private func enterDisplay(at point: CGPoint) {
+        guard let screen = NSScreen.containing(point), let display = screen.displayUUID,
+              display != moveDisplay
+        else { return }
+        moveDisplay = display
+        if let beginFrame {
+            remember(beginFrame, of: app)
+            self.beginFrame = nil
+        }
+        if resizable, let remembered = remembered(app, on: screen) {
+            startRect.size = remembered.restored(in: screen.globalVisibleFrame, keepSize: false).size
         }
     }
 
@@ -298,7 +334,12 @@ final class WindowMover {
 
         let area = screens[to].globalVisibleFrame
         let resizable = window.canResize
-        var newFrame = transfer(frame, from: source.globalVisibleFrame, to: area, keepSize: !resizable)
+        let app = bundleID(of: window)
+        remember(frame, of: app)
+        // Where its app's windows last were on that display, or the same
+        // relative place and size as here.
+        var newFrame = remembered(app, on: screens[to])?.restored(in: area, keepSize: !resizable)
+            ?? transfer(frame, from: source.globalVisibleFrame, to: area, keepSize: !resizable)
         if settings.gridEnabled && resizable {
             let size = settings.gridSize(forDisplay: screens[to].displayUUID)
             newFrame = fitToGrid(newFrame, area: area, columns: size.columns, rows: size.rows)
@@ -329,6 +370,30 @@ final class WindowMover {
         if moving {
             beginOperation(.move, at: newPoint, window: window)
         }
+    }
+
+    // MARK: Remembering frames per display
+
+    private func bundleID(of window: ManagedWindow) -> String? {
+        NSRunningApplication(processIdentifier: window.pid)?.bundleIdentifier
+    }
+
+    // Records `frame` as where the app's windows last were on the display
+    // that holds most of it (the one under its center).
+    private func remember(_ frame: CGRect, of app: String?) {
+        let center = CGPoint(x: frame.midX, y: frame.midY)
+        guard settings.rememberFrames, let app,
+              let screen = NSScreen.screens.first(where: { $0.globalFrame.contains(center) }),
+              let display = screen.displayUUID
+        else { return }
+        var memory = WindowMemory.load()
+        memory.remember(frame, area: screen.globalVisibleFrame, app: app, display: display)
+        memory.save()
+    }
+
+    private func remembered(_ app: String?, on screen: NSScreen) -> RememberedFrame? {
+        guard settings.rememberFrames, let app, let display = screen.displayUUID else { return nil }
+        return WindowMemory.load().frame(app: app, display: display)
     }
 
     // MARK: Snapping
