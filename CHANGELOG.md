@@ -2,6 +2,13 @@
 
 The section of a version becomes the notes of its GitHub release.
 
+## 0.6
+
+- **No more click to snap to the grid.** While moving or resizing, the grid
+  is shown (unless turned off) and window edges snap to its lines when they
+  come close, like they do to screen edges. Sending a window to another
+  display keeps its relative place and size instead of fitting the grid.
+
 ## 0.5
 
 - Letting go of the click after snapping a window to the grid now finishes

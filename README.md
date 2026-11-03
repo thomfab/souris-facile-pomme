@@ -18,11 +18,6 @@ Hold a key combination and move the mouse:
 | `⌃ Control` + `⌥ Option`          | Move the window under the pointer   |
 | `⌃ Control` + `⌥ Option` + `⌘ Command` | Resize the window under the pointer |
 
-Press and hold the click (a normal click on the trackpad) while holding the
-keys to snap to the grid. Releasing it drops the window where it snapped and
-ends the move or resize: release the keys and press them again to start
-another one.
-
 Release the keys to stop. The combination must match exactly, and both can be
 changed (or disabled) in the settings, which warn about combinations that
 can't work well (the same keys for both, or a single key held for ordinary
@@ -39,17 +34,16 @@ back.
 ### Snapping
 
 Window edges snap to screen edges (minus the
-menu bar and the Dock) and to the edges of neighbouring windows when they
-come within 16 points. The distance is configurable, and `0` turns snapping
-off.
+menu bar and the Dock), to the lines of the display's grid and to the edges
+of neighbouring windows when they come within 16 points. The distance is
+configurable, and `0` turns snapping off.
 
 ### Grid
 
-Each display is divided into a grid of columns and rows. While you hold the
-click, moved and resized edges always land on a grid line; the click itself
-doesn't reach the app under the pointer. The grid follows the display under
-the pointer, and its lines are shown while you hold the click, with the other
-windows dimmed. Windows stacked above the one you are moving stay bright, so
+Each display is divided into a grid of columns and rows. Moved and resized
+edges snap to a grid line when they come close to it, like they do to screen
+edges. The grid follows the display under the pointer, and its lines are
+shown while you move or resize, with the other windows dimmed. Windows stacked above the one you are moving stay bright, so
 turn on "Raise window" if you want everything else dimmed.
 
 Each display has its own grid size, e.g. 2 × 2 on the laptop screen and
@@ -76,8 +70,8 @@ While holding the move keys over a window:
 - **Press an arrow key**: the window goes to the display in that direction.
 
 The window keeps its relative place and size (a window on the left half of
-the laptop screen lands on the left half of the monitor), fits the grid of
-that display if you hold the click, and the pointer goes with it, so you can
+the laptop screen lands on the left half of the monitor), and the pointer
+goes with it, so you can
 keep moving it. Swipes, scrolls and arrow keys used this way don't reach the
 app under the pointer. Both can be turned off in the settings.
 

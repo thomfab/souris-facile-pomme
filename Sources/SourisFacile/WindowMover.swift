@@ -25,11 +25,6 @@ final class WindowMover {
     // Which edges a resize moves: -1 for left/top, 1 for right/bottom.
     private var resizeDirX: CGFloat = 1
     private var resizeDirY: CGFloat = 1
-    // Whether the button is held down with the keys, to snap to the grid.
-    private var gridClick = false
-    // Releasing that button ends the operation: the keys then do nothing
-    // until they're released.
-    private var waitForKeysUp = false
     // The window server ID of the window, to dim the others below it.
     private var windowID: CGWindowID?
     private var dimmed = false
@@ -59,8 +54,6 @@ final class WindowMover {
             return handleScroll(event)
         case .keyDown, .keyUp:
             return handleKey(type, event)
-        case .leftMouseDown, .leftMouseUp:
-            return handleClick(type, event)
         default:
             scheduleUpdate()
             return false
@@ -91,11 +84,8 @@ final class WindowMover {
         let action = settings.enabled
             ? settings.action(for: CGEventSource.flagsState(.combinedSessionState))
             : .none
-        if action == .none {
-            waitForKeysUp = false
-        }
         let newOp: Op
-        switch waitForKeysUp ? .none : action {
+        switch action {
         case .none: newOp = .none
         case .move: newOp = .move
         case .resize: newOp = .resize
@@ -116,9 +106,9 @@ final class WindowMover {
         updateDimmer()
     }
 
-    // The other windows are dimmed while snapping to the grid.
+    // The other windows are dimmed while moving or resizing.
     private func updateDimmer() {
-        let dim = op != .none && gridClick && settings.dimWindows && windowID != nil
+        let dim = op != .none && settings.dimWindows && windowID != nil
         guard dim != dimmed, let windowID else { return }
         if dim {
             overlays.showDimmer(below: windowID)
@@ -136,10 +126,6 @@ final class WindowMover {
 
         op = newOp
         self.window = window
-        // In case the button's release was missed.
-        if gridClick && !CGEventSource.buttonState(.combinedSessionState, button: .left) {
-            gridClick = false
-        }
         start = point
         startRect = rect
         lastFrame = rect
@@ -189,8 +175,8 @@ final class WindowMover {
         var y = (point.y - grabRatio.y * size.height).rounded()
 
         let grid = currentGrid(point)
-        x += snap([x, x + size.width], snapLinesX(top: y, height: size.height, grid), grid)
-        y += snap([y, y + size.height], snapLinesY(left: x, width: size.width, grid), grid)
+        x += snap([x, x + size.width], snapLinesX(top: y, height: size.height, grid))
+        y += snap([y, y + size.height], snapLinesY(left: x, width: size.width, grid))
 
         let frame = CGRect(origin: CGPoint(x: x, y: y), size: size)
         guard frame != lastFrame else { return }
@@ -231,16 +217,16 @@ final class WindowMover {
         let grid = currentGrid(point)
         let linesX = snapLinesX(top: top, height: bottom - top, grid)
         if resizeDirX > 0 {
-            right += snap([right], linesX, grid)
+            right += snap([right], linesX)
         } else {
-            left += snap([left], linesX, grid)
+            left += snap([left], linesX)
         }
 
         let linesY = snapLinesY(left: left, width: right - left, grid)
         if resizeDirY > 0 {
-            bottom += snap([bottom], linesY, grid)
+            bottom += snap([bottom], linesY)
         } else {
-            top += snap([top], linesY, grid)
+            top += snap([top], linesY)
         }
 
         if right - left < minWidth {
@@ -271,33 +257,13 @@ final class WindowMover {
         }
     }
 
-    // Pressing the button while holding the keys snaps to the grid until
-    // it's released. The app under the pointer gets neither.
-    private func handleClick(_ type: CGEventType, _ event: CGEvent) -> Bool {
-        if type == .leftMouseUp {
-            guard gridClick else { return false }
-            gridClick = false
-            // The window stays where it snapped.
-            waitForKeysUp = true
-            scheduleUpdate()
-            return true
-        }
-        if op == .none {
-            settings = Settings.load()
-        }
-        guard settings.enabled, !waitForKeysUp, settings.action(for: event.flags) != .none else { return false }
-        gridClick = true
-        scheduleUpdate()
-        return true
-    }
-
     // MARK: Sending to another display
 
     private func holdsMoveKeys(_ event: CGEvent) -> Bool {
         if op == .none {
             settings = Settings.load()
         }
-        return settings.enabled && !waitForKeysUp && !settings.moveFlags.isEmpty
+        return settings.enabled && !settings.moveFlags.isEmpty
             && event.flags.intersection(Modifier.relevantFlags) == settings.moveFlags
     }
 
@@ -383,12 +349,8 @@ final class WindowMover {
         remember(frame, of: app)
         // Where its app's windows last were on that display, or the same
         // relative place and size as here.
-        var newFrame = remembered(app, on: screens[to])?.restored(in: area, keepSize: !resizable)
+        let newFrame = remembered(app, on: screens[to])?.restored(in: area, keepSize: !resizable)
             ?? transfer(frame, from: source.globalVisibleFrame, to: area, keepSize: !resizable)
-        if gridClick && resizable {
-            let grid = settings.grid(forDisplay: screens[to].displayUUID, size: screens[to].globalFrame.size)
-            newFrame = fitToGrid(newFrame, area: area, columns: grid.columns, rows: grid.rows)
-        }
 
         endOperation()
         if resizable {
@@ -463,20 +425,17 @@ final class WindowMover {
         return target?.id
     }
 
-    private func snap(_ edges: [CGFloat], _ lines: [CGFloat], _ grid: Grid?) -> CGFloat {
-        // The grid always snaps; edge snapping only within the threshold.
-        let threshold = grid != nil ? .infinity : settings.snapThreshold
-        guard threshold > 0 else { return 0 }
-        return snapDelta(edges, lines, threshold: threshold)
+    private func snap(_ edges: [CGFloat], _ lines: [CGFloat]) -> CGFloat {
+        guard settings.snapThreshold > 0 else { return 0 }
+        return snapDelta(edges, lines, threshold: settings.snapThreshold)
     }
 
     // Vertical lines a window spanning [top, top + height] can snap to.
     private func snapLinesX(top: CGFloat, height: CGFloat, _ grid: Grid?) -> [CGFloat] {
-        if let grid {
-            return divide(grid.area.minX, grid.area.width, grid.columns)
-        }
-
         var lines = workAreas.flatMap { [$0.minX, $0.maxX] }
+        if let grid {
+            lines += divide(grid.area.minX, grid.area.width, grid.columns)
+        }
         if settings.snapToWindows {
             let t = settings.snapThreshold
             for r in otherRects where r.minY - t < top + height && r.maxY + t > top {
@@ -488,11 +447,10 @@ final class WindowMover {
 
     // Horizontal lines a window spanning [left, left + width] can snap to.
     private func snapLinesY(left: CGFloat, width: CGFloat, _ grid: Grid?) -> [CGFloat] {
-        if let grid {
-            return divide(grid.area.minY, grid.area.height, grid.rows)
-        }
-
         var lines = workAreas.flatMap { [$0.minY, $0.maxY] }
+        if let grid {
+            lines += divide(grid.area.minY, grid.area.height, grid.rows)
+        }
         if settings.snapToWindows {
             let t = settings.snapThreshold
             for r in otherRects where r.minX - t < left + width && r.maxX + t > left {
@@ -504,10 +462,9 @@ final class WindowMover {
 
     private typealias Grid = (area: CGRect, columns: Int, rows: Int)
 
-    // The grid of the screen under the pointer while the button is held,
-    // or nil (edge snapping then applies).
+    // The grid of the screen under the pointer, shown if that's on.
     private func currentGrid(_ point: CGPoint) -> Grid? {
-        guard gridClick, let screen = NSScreen.containing(point) else {
+        guard let screen = NSScreen.containing(point) else {
             overlays.hideGrid()
             return nil
         }

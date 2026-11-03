@@ -169,7 +169,7 @@ struct SettingsView: View {
         } header: {
             Text("Edge Snapping")
         } footer: {
-            Text("Window edges snap to screen edges when they come close. 0 turns edge snapping off.")
+            Text("Window edges snap to screen edges and grid lines when they come close. 0 turns snapping off.")
         }
 
         Section {
@@ -178,7 +178,7 @@ struct SettingsView: View {
         } header: {
             Text("Grid")
         } footer: {
-            Text("While moving or resizing, press and hold the click (with the keys still held) to snap window edges to the grid of the display under the pointer. Releasing the click drops the window there: release the keys before moving or resizing again. Each display's grid is set on its own page.")
+            Text("While moving or resizing, window edges snap to the grid of the display under the pointer when they come close to its lines. Each display's grid is set on its own page.")
         }
     }
 
@@ -220,7 +220,7 @@ struct SettingsView: View {
         } header: {
             Text("Grid")
         } footer: {
-            Text("Windows snap to it while you hold the click. Remembered for this display, and used again whenever it's plugged in. A new display gets a grid suiting its size.")
+            Text("Window edges snap to its lines when they come close. Remembered for this display, and used again whenever it's plugged in. A new display gets a grid suiting its size.")
         }
 
         Section {
